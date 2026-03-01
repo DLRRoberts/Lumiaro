@@ -1,0 +1,381 @@
+﻿@page "/reports/{Id:int}"
+@inject MatchReportService ReportService
+@inject InterventionReviewService ReviewService
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+@if (Report is null)
+{
+    <div style="text-align:center;padding:80px 32px;">
+        <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;">@L["reports.notFound"]</h1>
+        <p style="color:var(--text-muted);margin-top:8px;">The requested match report could not be located.</p>
+        <a href="/reports" class="btn btn-primary" style="margin-top:20px;">Back to Reports</a>
+    </div>
+}
+else
+{
+    <PageTitle>Lumiaro — Report: @Report.RefereeName</PageTitle>
+
+    <a href="/reports" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+        Match Reports
+    </a>
+
+    @* ── Hero ── *@
+    <div class="assessment-detail-hero">
+        <div class="assessment-detail-hero-left">
+            <AvatarPlaceholder Initials="@Report.RefereeInitials" Size="64" FontSize="1.3rem" />
+            <div>
+                <div class="assessment-detail-name">@Report.RefereeName</div>
+                <div class="assessment-detail-meta">
+                    <span>@Report.RefereeCode</span>
+                    <span>@Report.OfficialRole.Label()</span>
+                    <TierBadge Tier="Report.RefereeTier" />
+                    <span class="assessment-status-badge @StatusCss(Report.Status)">@Report.StatusLabel</span>
+                </div>
+                <div class="assessment-detail-match">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    @Report.MatchTitle
+                    @if (Report.HomeScore.HasValue && Report.AwayScore.HasValue)
+                    {
+                        <span style="font-weight:700;color:var(--text-primary);margin:0 4px;">@Report.ScoreDisplay</span>
+                    }
+                    — @Report.DateDisplay
+                    <TierBadge Tier="Report.CompetitionTier" />
+                    @if (Report.Venue != null)
+                    {
+                        <span style="color:var(--text-dim);">@Report.Venue</span>
+                    }
+                </div>
+                <div style="font-size:.72rem;color:var(--text-dim);margin-top:4px;">
+                    Report by <span style="color:var(--text-muted);font-weight:500;">@Report.AuthorName</span>
+                    — @Report.CreatedAt.ToString("dd MMM yyyy HH:mm")
+                    @if (Report.UpdatedAt.HasValue)
+                    {
+                        <span> · Updated @Report.UpdatedAt.Value.ToString("dd MMM yyyy HH:mm")</span>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="assessment-detail-hero-right">
+            <div class="assessment-overall-score" style="color:@UiHelpers.ScoreColor(Report.OverallRating);">
+                @Report.OverallRating.ToString("F1")
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1.5px;">Overall Rating</div>
+            <div class="assessment-sub-scores">
+                <div class="assessment-sub-score">
+                    <span class="assessment-sub-score-value" style="color:@UiHelpers.ScoreColor(Report.SectionAverageRating);">@Report.SectionAverageRating.ToString("F1")</span>
+                    <span class="assessment-sub-score-label">Avg Section</span>
+                </div>
+                <div class="assessment-sub-score">
+                    <span class="assessment-sub-score-value" style="color:var(--accent-cyan);">@Report.TotalEvents</span>
+                    <span class="assessment-sub-score-label">Events</span>
+                </div>
+                @if (Report.CriticalEventCount > 0)
+                {
+                    <div class="assessment-sub-score">
+                        <span class="assessment-sub-score-value" style="color:var(--accent-red);">@Report.CriticalEventCount</span>
+                        <span class="assessment-sub-score-label">Critical</span>
+                    </div>
+                }
+                <div class="assessment-sub-score">
+                    <span class="assessment-sub-score-value" style="color:var(--accent-magenta);">@Report.VideoClips.Count</span>
+                    <span class="assessment-sub-score-label">Clips</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── Actions ── *@
+    <div style="display:flex;gap:10px;margin:20px 0 28px;flex-wrap:wrap;">
+        <button class="btn btn-primary" @onclick="EditReport">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit Report
+        </button>
+        @if (Report.Status == ReportStatus.Draft)
+        {
+            <button class="btn btn-secondary" @onclick="SubmitReport">@L["reports.submitForReview"]</button>
+        }
+        @if (Report.Status == ReportStatus.Submitted)
+        {
+            <button class="btn btn-secondary" style="border-color:rgba(118,255,3,0.2);color:var(--accent-lime);" @onclick="PublishReport">@L["reports.publish"]</button>
+        }
+        <div style="flex:1;"></div>
+        <a href="/reports/@Report.Id/review" class="btn btn-secondary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Review Interventions
+        </a>
+        <a href="/reports/@Report.Id/reviews" class="btn btn-ghost">
+            Consensus
+            @if (ReviewerCount > 0)
+            {
+                <span class="nav-badge" style="margin-left:6px;">@ReviewerCount</span>
+            }
+        </a>
+    </div>
+
+    @* ── Tab Navigation ── *@
+    <div class="profile-tabs" style="margin-bottom:24px;">
+        <button class='profile-tab @(ActiveTab == "sections" ? "active" : "")' @onclick='() => SetTab("sections")'>
+            Performance Sections
+        </button>
+        <button class='profile-tab @(ActiveTab == "events" ? "active" : "")' @onclick='() => SetTab("events")'>
+            Event Timeline
+            @if (Report.TotalEvents > 0)
+            {
+                <span class="nav-badge" style="margin-left:6px;">@Report.TotalEvents</span>
+            }
+        </button>
+        <button class='profile-tab @(ActiveTab == "video" ? "active" : "")' @onclick='() => SetTab("video")'>
+            Video Clips
+            @if (Report.VideoClips.Count > 0)
+            {
+                <span class="nav-badge" style="margin-left:6px;">@Report.VideoClips.Count</span>
+            }
+        </button>
+        <button class='profile-tab @(ActiveTab == "conclusion" ? "active" : "")' @onclick='() => SetTab("conclusion")'>
+            Conclusion
+        </button>
+    </div>
+
+    @* ── Performance Sections Tab ── *@
+    @if (ActiveTab == "sections")
+    {
+        <div class="report-sections-grid">
+            <ReportSectionCard Title="Performance Summary" Section="Report.PerformanceSummary" />
+            <ReportSectionCard Title="Decision Making" Section="Report.DecisionMaking" />
+            <ReportSectionCard Title="Positioning & Movement" Section="Report.Positioning" />
+            <ReportSectionCard Title="Communication" Section="Report.Communication" />
+            <ReportSectionCard Title="Management Style" Section="Report.ManagementStyle" />
+            <ReportSectionCard Title="Fitness & Work Rate" Section="Report.FitnessAndWorkRate" />
+        </div>
+    }
+
+    @* ── Event Timeline Tab ── *@
+    @if (ActiveTab == "events")
+    {
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">@L["reports.section.events"]</div>
+                <div class="assessment-section-subtitle">
+                    @Report.TotalEvents events recorded
+                    @if (Report.CriticalEventCount > 0)
+                    {
+                        <span> · <span style="color:var(--accent-red);font-weight:600;">@Report.CriticalEventCount critical</span></span>
+                    }
+                    @if (Report.HighEventCount > 0)
+                    {
+                        <span> · <span style="color:var(--accent-orange);font-weight:600;">@Report.HighEventCount high impact</span></span>
+                    }
+                </div>
+            </div>
+
+            @if (Report.Events.Count == 0)
+            {
+                <div style="text-align:center;padding:32px;color:var(--text-dim);">
+                    No events recorded for this match.
+                </div>
+            }
+            else
+            {
+                <div class="event-timeline">
+                    @foreach (var evt in Report.Events)
+                    {
+                        <div class="event-timeline-item impact-border-@evt.Impact.ToString().ToLower()">
+                            <div class="event-timeline-minute">@evt.MinuteDisplay</div>
+                            <div class="event-timeline-body">
+                                <div class="event-timeline-header">
+                                    <EventBadge Type="evt.EventType" />
+                                    <ImpactBadge Impact="evt.Impact" />
+                                    @if (evt.OfficialInvolved)
+                                    {
+                                        <span class="event-official-tag">Official Involved</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(evt.Teams))
+                                    {
+                                        <span style="font-size:.68rem;color:var(--text-dim);margin-left:auto;">@evt.Teams</span>
+                                    }
+                                </div>
+                                <div class="event-timeline-desc">@evt.Description</div>
+                                @if (!string.IsNullOrWhiteSpace(evt.OfficialResponse))
+                                {
+                                    <div class="event-timeline-response">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" width="12" height="12"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                        @evt.OfficialResponse
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Video Clips Tab ── *@
+    @if (ActiveTab == "video")
+    {
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">@L["reports.section.video"]</div>
+                <div class="assessment-section-subtitle">@Report.VideoClips.Count clip(s) attached to this report</div>
+            </div>
+
+            @if (Report.VideoClips.Count == 0)
+            {
+                <div style="text-align:center;padding:32px;color:var(--text-dim);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40" style="opacity:.4;margin-bottom:12px;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                    <div>No video clips attached to this report.</div>
+                    <div style="font-size:.78rem;margin-top:4px;">@L["reports.section.uploadVideo"]</div>
+                </div>
+            }
+            else
+            {
+                <div class="video-clips-grid">
+                    @foreach (var clip in Report.VideoClips)
+                    {
+                        <div class="video-clip-card">
+                            <div class="video-clip-thumbnail">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            </div>
+                            <div class="video-clip-info">
+                                <div class="video-clip-title">@clip.Title</div>
+                                @if (!string.IsNullOrWhiteSpace(clip.Description))
+                                {
+                                    <div class="video-clip-desc">@clip.Description</div>
+                                }
+                                <div class="video-clip-meta">
+                                    <span>@clip.FileName</span>
+                                    <span>@clip.FileSizeDisplay</span>
+                                    @if (clip.MatchMinute.HasValue)
+                                    {
+                                        <span style="color:var(--accent-cyan);">@clip.MinuteDisplay</span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(clip.LinkedEventDescription))
+                                {
+                                    <div class="video-clip-linked">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                        @clip.LinkedEventDescription
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Conclusion Tab ── *@
+    @if (ActiveTab == "conclusion")
+    {
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">Report Conclusion & Recommendations</div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Report.Conclusion))
+            {
+                <div class="assessment-notes-block">
+                    <div class="assessment-notes-label">@L["reports.section.conclusion"]</div>
+                    <div class="assessment-notes-text" style="white-space:pre-wrap;">@Report.Conclusion</div>
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Report.Recommendations))
+            {
+                <div class="assessment-notes-block">
+                    <div class="assessment-notes-label">Recommendations</div>
+                    <div class="assessment-notes-text" style="white-space:pre-wrap;">@Report.Recommendations</div>
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Report.ConfidentialNotes))
+            {
+                <div class="assessment-notes-block" style="border-color:rgba(255,23,68,0.15);background:rgba(255,23,68,0.03);">
+                    <div class="assessment-notes-label" style="color:var(--accent-red);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="vertical-align:-1px;margin-right:4px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        Confidential Notes
+                    </div>
+                    <div class="assessment-notes-text" style="white-space:pre-wrap;">@Report.ConfidentialNotes</div>
+                </div>
+            }
+
+            @* Score Breakdown Table *@
+            <div class="section-title" style="margin-top:24px;">
+                Score Breakdown
+                <span class="accent-line"></span>
+            </div>
+            <table class="data-table" style="margin-top:12px;">
+                <thead><tr>
+                    <th>Section</th><th style="text-align:right;">Rating</th>
+                </tr></thead>
+                <tbody>
+                    <tr>
+                        <td>Performance Summary</td>
+                        <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:@UiHelpers.ScoreColor(Report.PerformanceSummary.Rating);">@Report.PerformanceSummary.Rating.ToString("F1")</td>
+                    </tr>
+                    <tr>
+                        <td>Decision Making</td>
+                        <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:@UiHelpers.ScoreColor(Report.DecisionMaking.Rating);">@Report.DecisionMaking.Rating.ToString("F1")</td>
+                    </tr>
+                    <tr>
+                        <td>Positioning & Movement</td>
+                        <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:@UiHelpers.ScoreColor(Report.Positioning.Rating);">@Report.Positioning.Rating.ToString("F1")</td>
+                    </tr>
+                    <tr>
+                        <td>Communication</td>
+                        <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:@UiHelpers.ScoreColor(Report.Communication.Rating);">@Report.Communication.Rating.ToString("F1")</td>
+                    </tr>
+                    <tr>
+                        <td>Management Style</td>
+                        <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:@UiHelpers.ScoreColor(Report.ManagementStyle.Rating);">@Report.ManagementStyle.Rating.ToString("F1")</td>
+                    </tr>
+                    <tr>
+                        <td>Fitness & Work Rate</td>
+                        <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:@UiHelpers.ScoreColor(Report.FitnessAndWorkRate.Rating);">@Report.FitnessAndWorkRate.Rating.ToString("F1")</td>
+                    </tr>
+                    <tr style="border-top:2px solid var(--border-strong);font-weight:700;">
+                        <td>Overall Rating</td>
+                        <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:@UiHelpers.ScoreColor(Report.OverallRating);">@Report.OverallRating.ToString("F1")</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private MatchOfficialReport? Report;
+    private string ActiveTab = "sections";
+    private int ReviewerCount;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Report = await ReportService.GetByIdAsync(Id);
+        if (Report != null)
+            ReviewerCount = await ReviewService.GetReviewerCountAsync(Id);
+    }
+
+    private void SetTab(string tab) => ActiveTab = tab;
+    private void EditReport() => Nav.NavigateTo($"/reports/edit/{Report!.Id}");
+
+    private async Task SubmitReport()
+    {
+        if (Report != null) { Report.Status = ReportStatus.Submitted; await ReportService.UpdateAsync(Report); }
+    }
+
+    private async Task PublishReport()
+    {
+        if (Report != null) { Report.Status = ReportStatus.Published; await ReportService.UpdateAsync(Report); }
+    }
+
+    private static string StatusCss(ReportStatus s) => s switch
+    {
+        ReportStatus.Draft => "status-draft",
+        ReportStatus.Submitted => "status-submitted",
+        ReportStatus.Published => "status-finalised",
+        _ => "status-draft"
+    };
+}

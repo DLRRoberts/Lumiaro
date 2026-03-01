@@ -1,0 +1,130 @@
+<div class="modal-overlay @(IsOpen ? "open" : "")">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">@(Model.IsEdit ? "Edit Referee" : "Add New Referee")</div>
+            <button class="modal-close" @onclick="Cancel">✕</button>
+        </div>
+
+        <EditForm Model="Model" OnValidSubmit="HandleSubmit" FormName="refereeForm">
+            <DataAnnotationsValidator />
+
+            <div class="modal-body">
+                <div style="display:flex;gap:28px;align-items:flex-start;margin-bottom:24px;">
+                    <div class="photo-upload">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                        <span>Upload Photo</span>
+                    </div>
+                    <div style="flex:1;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">First Name</label>
+                                <InputText @bind-Value="Model.FirstName" class="form-input" placeholder="Enter first name" />
+                                <ValidationMessage For="() => Model.FirstName" />
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Last Name</label>
+                                <InputText @bind-Value="Model.LastName" class="form-input" placeholder="Enter last name" />
+                                <ValidationMessage For="() => Model.LastName" />
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Date of Birth</label>
+                                <InputDate @bind-Value="Model.DateOfBirth" class="form-input" />
+                                <ValidationMessage For="() => Model.DateOfBirth" />
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Nationality</label>
+                                <InputSelect @bind-Value="Model.Nationality" class="form-select">
+                                    <option value="">Select nationality</option>
+                                    <option value="English">English</option>
+                                    <option value="Welsh">Welsh</option>
+                                    <option value="Scottish">Scottish</option>
+                                    <option value="Northern Irish">Northern Irish</option>
+                                    <option value="Other">Other</option>
+                                </InputSelect>
+                                <ValidationMessage For="() => Model.Nationality" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Location / Town</label>
+                        <InputText @bind-Value="Model.Location" class="form-input" placeholder="e.g. Pembrokeshire, Wales" />
+                        <ValidationMessage For="() => Model.Location" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">County / Region</label>
+                        <InputText @bind-Value="Model.Region" class="form-input" placeholder="e.g. Dyfed" />
+                    </div>
+                </div>
+
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label class="form-label">Referee Tier</label>
+                        <InputSelect @bind-Value="Model.Tier" class="form-select">
+                            <option value="">Select tier</option>
+                            @foreach (var tier in Enum.GetValues<RefereeTier>())
+                            {
+                                <option value="@tier">@UiHelpers.TierLabelFull(tier)</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => Model.Tier" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <InputSelect @bind-Value="Model.Status" class="form-select">
+                            @foreach (var status in Enum.GetValues<RefereeStatus>())
+                            {
+                                <option value="@status">@UiHelpers.StatusLabel(status)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Registration Date</label>
+                        <InputDate @bind-Value="Model.RegistrationDate" class="form-input" />
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Email Address</label>
+                        <InputText @bind-Value="Model.Email" class="form-input" placeholder="referee@example.com" />
+                        <ValidationMessage For="() => Model.Email" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone Number</label>
+                        <InputText @bind-Value="Model.Phone" class="form-input" placeholder="+44 7xxx xxx xxx" />
+                        <ValidationMessage For="() => Model.Phone" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <InputTextArea @bind-Value="Model.Notes" class="form-textarea" placeholder="Any additional notes about this referee..." />
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+                <button type="submit" class="btn btn-primary">@(Model.IsEdit ? "Save Changes" : "Save Referee")</button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public RefereeFormModel Model { get; set; } = new();
+    [Parameter] public EventCallback<RefereeFormModel> OnSubmit { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private async Task HandleSubmit() => await OnSubmit.InvokeAsync(Model);
+    private async Task Cancel() => await OnCancel.InvokeAsync();
+}

@@ -1,0 +1,215 @@
+@page "/referees/{Id:int}"
+@inject RefereeService RefereeService
+@inject NavigationManager Nav
+
+@if (Referee is null)
+{
+    <div style="text-align:center;padding:80px 32px;">
+        <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;">@L["referees.profile.notFound"]</h1>
+        <p style="color:var(--text-muted);margin-top:8px;">The requested referee could not be located.</p>
+        <a href="/referees" class="btn btn-primary" style="margin-top:20px;">Back to Registry</a>
+    </div>
+}
+else
+{
+    <PageTitle>Lumiaro — @Referee.FullName</PageTitle>
+
+    @* ── Profile Hero ── *@
+    <div class="profile-hero">
+        <AvatarPlaceholder Initials="@Referee.Initials" Size="140" FontSize="2.4rem" BorderWidth="3px" />
+        <div class="profile-info">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <div class="profile-name">@Referee.FullName</div>
+                <span class="tier-badge @UiHelpers.TierCssClass(Referee.Tier)">@UiHelpers.TierLabelFull(Referee.Tier).ToUpperInvariant()</span>
+                <StatusBadge Status="Referee.Status" />
+            </div>
+            <div class="profile-meta">
+                <span class="profile-meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Born @Referee.DateOfBirth.ToString("dd MMM yyyy") (Age @Referee.Age)
+                </span>
+                <span class="profile-meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    @Referee.Location
+                </span>
+                <span class="profile-meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    @Referee.RefCode
+                </span>
+                <span class="profile-meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Registered @Referee.RegistrationDate.ToString("dd MMM yyyy")
+                </span>
+            </div>
+            <div class="profile-stats-row">
+                <div class="profile-stat-mini"><div class="val">@Referee.TotalMatches</div><div class="lbl">Total Matches</div></div>
+                <div class="profile-stat-mini"><div class="val" style="color:var(--accent-lime);">@Referee.AverageScore.ToString("F1")</div><div class="lbl">Avg. Score</div></div>
+                <div class="profile-stat-mini"><div class="val" style="color:var(--accent-gold);">@Referee.AccuracyPercent.ToString("F1")%</div><div class="lbl">Accuracy</div></div>
+                <div class="profile-stat-mini"><div class="val" style="color:var(--accent-orange);">@Referee.TotalSeasons</div><div class="lbl">Seasons</div></div>
+            </div>
+        </div>
+    </div>
+
+    @* ── Tabs ── *@
+    <div class="tabs">
+        @foreach (var tab in Tabs)
+        {
+            <button class="tab @(tab == ActiveTab ? "active" : "")" @onclick="() => ActiveTab = tab">@tab</button>
+        }
+    </div>
+
+    @* ── Tab: Overview ── *@
+    @if (ActiveTab == "Overview")
+    {
+        <div class="content-grid-equal">
+            <div>
+                <div class="section-title">Current Season (2025/26)<span class="accent-line"></span></div>
+                <div class="widget-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:0;">
+                    <StatCard Label="Matches" Value="@Referee.CurrentSeasonMatches.ToString()" Accent="cyan" SmallValue />
+                    <StatCard Label="Assessment Avg" Value="@Referee.CurrentSeasonAvgScore.ToString("F1")" Accent="lime" SmallValue />
+                    <StatCard Label="Key Incidents" Value="@Referee.CurrentSeasonIncidents.ToString()" Accent="orange" SmallValue
+                              Change="@($"{Referee.CurrentSeasonPenalties} penalties, {Referee.CurrentSeasonReds} red cards")" />
+                    <StatCard Label="Cards Issued" Value="@((Referee.CurrentSeasonYellows + Referee.CurrentSeasonReds).ToString())" Accent="blue" SmallValue
+                              Change="@($"{(Referee.CurrentSeasonMatches > 0 ? (double)(Referee.CurrentSeasonYellows + Referee.CurrentSeasonReds) / Referee.CurrentSeasonMatches : 0):F1} per match avg")" />
+                </div>
+            </div>
+            <div>
+                <div class="section-title">@L["referees.profile.careerHistory"]<span class="accent-line"></span></div>
+                <div class="timeline">
+                    @foreach (var entry in Referee.CareerHistory)
+                    {
+                        <div class="timeline-item @(entry.IsCurrent ? "" : "past")">
+                            <div class="timeline-date">@entry.Period</div>
+                            <div class="timeline-title">@entry.Title</div>
+                            <div class="timeline-detail">@entry.Detail</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ── Tab: Match History ── *@
+    @if (ActiveTab == "Match History")
+    {
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+            <FilterBar Options="SeasonFilters" ActiveFilter="@ActiveSeasonFilter"
+                       ActiveFilterChanged="OnSeasonFilterChanged" />
+            <div class="search-input-wrap" style="width:220px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" class="search-input" placeholder="@L["referees.profile.searchMatches"]" />
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Date</th><th>Match</th><th>Competition</th><th>Result</th><th>Role</th><th>Cards</th><th>Incidents</th><th>Score</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in Matches)
+                    {
+                        <tr>
+                            <td style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--text-muted);white-space:nowrap;">
+                                @m.Date.ToString("dd MMM yyyy")
+                            </td>
+                            <td style="font-weight:500;">@m.MatchTitle</td>
+                            <td><TierBadge Tier="m.CompetitionTier" /></td>
+                            <td><span class="match-score">@(m.ScoreDisplay ?? "—")</span></td>
+                            <td style="font-size:.8rem;color:var(--text-muted);">@m.Role</td>
+                            <td style="font-family:'JetBrains Mono',monospace;font-size:.8rem;">
+                                <span style="color:var(--accent-gold);">@(m.YellowCards)Y</span>
+                                <span style="color:var(--text-dim);margin:0 2px;">·</span>
+                                <span style="color:var(--accent-red);">@(m.RedCards)R</span>
+                            </td>
+                            <td style="font-size:.8rem;color:var(--text-muted);">@m.IncidentSummary</td>
+                            <td>
+                                @if (m.AssessmentScore.HasValue)
+                                {
+                                    <span style="font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:@UiHelpers.ScoreColor(m.AssessmentScore);">
+                                        @m.AssessmentScore.Value.ToString("F1")
+                                    </span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="table-footer">
+                <span>Showing @Matches.Count matches</span>
+                <div class="pagination"><button>‹</button><button class="active">1</button><button>›</button></div>
+            </div>
+        </div>
+    }
+
+    @* ── Tab: Career Timeline ── *@
+    @if (ActiveTab == "Career Timeline")
+    {
+        <div class="section-title">@L["referees.profile.fullTimeline"]<span class="accent-line"></span></div>
+        <div class="timeline">
+            @foreach (var entry in Referee.CareerHistory)
+            {
+                <div class="timeline-item @(entry.IsCurrent ? "" : "past")">
+                    <div class="timeline-date">@entry.Period</div>
+                    <div class="timeline-title">@entry.Title</div>
+                    <div class="timeline-detail">@entry.Detail</div>
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Tab: Season Breakdown ── *@
+    @if (ActiveTab == "Season Breakdown")
+    {
+        <div class="table-wrap">
+            <div class="table-header"><div class="table-title">@L["referees.profile.seasonStats"]</div></div>
+            <table>
+                <thead>
+                    <tr><th>Season</th><th>Tier</th><th>Matches</th><th>Yellows</th><th>Reds</th><th>Penalties</th><th>Avg Score</th><th>Trend</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in Referee.SeasonBreakdown)
+                    {
+                        <tr>
+                            <td style="font-weight:500;">@s.Season</td>
+                            <td><TierBadge Tier="s.Tier" /></td>
+                            <td style="font-family:'JetBrains Mono',monospace;">@s.Matches</td>
+                            <td style="font-family:'JetBrains Mono',monospace;color:var(--accent-gold);">@s.Yellows</td>
+                            <td style="font-family:'JetBrains Mono',monospace;color:var(--accent-red);">@s.Reds</td>
+                            <td style="font-family:'JetBrains Mono',monospace;">@s.Penalties</td>
+                            <td style="font-family:'JetBrains Mono',monospace;font-weight:500;color:@UiHelpers.ScoreColor(s.AvgScore);">@s.AvgScore.ToString("F1")</td>
+                            <td style="@UiHelpers.TrendClass(s.TrendChange);font-size:.82rem;">@UiHelpers.TrendArrow(s.TrendChange)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Referee? Referee;
+    private List<Match> Matches = new();
+
+    // Tabs
+    private string ActiveTab = "Overview";
+    private static readonly string[] Tabs = { "Overview", "Match History", "Career Timeline", "Season Breakdown" };
+
+    // Season filter
+    private string ActiveSeasonFilter = "All Seasons";
+    private static readonly List<string> SeasonFilters = new() { "All Seasons", "2025/26", "2024/25", "2023/24" };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Referee = await RefereeService.GetRefereeByIdAsync(Id);
+        if (Referee != null)
+            Matches = await RefereeService.GetMatchesForRefereeAsync(Id);
+    }
+
+    private async Task OnSeasonFilterChanged(string filter)
+    {
+        ActiveSeasonFilter = filter;
+        Matches = await RefereeService.GetMatchesForRefereeAsync(Id, filter == "All Seasons" ? null : filter);
+    }
+}

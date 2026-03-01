@@ -1,0 +1,358 @@
+﻿@page "/reports"
+@inject MatchReportService ReportService
+@inject InterventionReviewService ReviewService
+@inject FixtureService FixtureService
+@inject RefereeService RefereeService
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<PageTitle>@L["reports.pageTitle"]</PageTitle>
+
+@* ── Header ── *@
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;flex-wrap:wrap;gap:16px;">
+    <div>
+        <h1 style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;margin-bottom:4px;">
+            Match Reports
+        </h1>
+        <p style="font-size:.85rem;color:var(--text-muted);font-weight:300;">
+            Detailed narrative reports on match official performance with event timelines and video evidence.
+        </p>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;">
+        <MiniStat Value="@Stats.total.ToString()" Label="Total" Color="var(--accent-cyan)" />
+        <MiniStat Value="@Stats.draft.ToString()" Label="Draft" Color="var(--text-muted)" />
+        <MiniStat Value="@Stats.submitted.ToString()" Label="Submitted" Color="var(--accent-orange)" />
+        <MiniStat Value="@Stats.published.ToString()" Label="Published" Color="var(--accent-lime)" />
+        <button class="btn btn-primary" style="margin-left:8px;" @onclick="OpenNewModal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Report
+        </button>
+    </div>
+</div>
+
+@* ── Filters ── *@
+<div class="assessment-filters">
+    <div class="search-input-wrap" style="flex:1;max-width:320px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="search-input" placeholder="@L["reports.searchPlaceholder"]"
+               @bind="SearchQuery" @bind:event="oninput" @bind:after="ApplyFiltersAsync" />
+    </div>
+
+    <div class="form-group" style="min-width:170px;">
+        <select class="form-select" @bind="FilterRefereeId" @bind:after="ApplyFiltersAsync">
+            <option value="0">All Officials</option>
+            @foreach (var r in ReportedReferees)
+            {
+                <option value="@r.Id">@r.Name</option>
+            }
+        </select>
+    </div>
+
+    <div class="form-group" style="min-width:140px;">
+        <select class="form-select" @bind="FilterMinRatingStr" @bind:after="ApplyFiltersAsync">
+            <option value="">Any Rating</option>
+            <option value="8">8.0+</option>
+            <option value="7">7.0+</option>
+            <option value="6">6.0+</option>
+            <option value="5">5.0+</option>
+        </select>
+    </div>
+
+    <div class="form-group" style="min-width:140px;">
+        <select class="form-select" @bind="FilterEventTypeStr" @bind:after="ApplyFiltersAsync">
+            <option value="">Any Events</option>
+            <option value="@((int)EventType.Goal)">Goals</option>
+            <option value="@((int)EventType.Penalty)">Penalties</option>
+            <option value="@((int)EventType.YellowCard)">Yellow Cards</option>
+            <option value="@((int)EventType.RedCard)">Red Cards</option>
+            <option value="@((int)EventType.VarReview)">VAR Reviews</option>
+            <option value="@((int)EventType.Offside)">Offsides</option>
+        </select>
+    </div>
+
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="filter-pill @(FilterStatus == null ? "active" : "")" @onclick="() => SetStatusFilter(null)">All</button>
+        <button class="filter-pill @(FilterStatus == ReportStatus.Draft ? "active" : "")" @onclick="() => SetStatusFilter(ReportStatus.Draft)">Draft</button>
+        <button class="filter-pill @(FilterStatus == ReportStatus.Submitted ? "active" : "")" @onclick="() => SetStatusFilter(ReportStatus.Submitted)">Submitted</button>
+        <button class="filter-pill @(FilterStatus == ReportStatus.Published ? "active" : "")" @onclick="() => SetStatusFilter(ReportStatus.Published)">Published</button>
+    </div>
+
+    <div style="margin-left:auto;">
+        <button class="btn btn-ghost" style="font-size:.75rem;" @onclick="ClearFilters">@L["common.clearAll"]</button>
+    </div>
+</div>
+
+@* ── Report List ── *@
+@if (!Filtered.Any())
+{
+    <div class="card" style="text-align:center;padding:48px 32px;">
+        <div style="font-size:.9rem;color:var(--text-dim);">No match reports found matching your criteria.</div>
+    </div>
+}
+else
+{
+    <div class="assessment-list">
+        @foreach (var r in Filtered)
+        {
+            <div class="assessment-card" @onclick="() => ViewReport(r.Id)">
+                <div class="assessment-card-left">
+                    <AvatarPlaceholder Initials="@r.RefereeInitials" Size="48" FontSize=".92rem" />
+                </div>
+                <div class="assessment-card-body">
+                    <div class="assessment-card-top-row">
+                        <span class="assessment-card-name">@r.RefereeName</span>
+                        <TierBadge Tier="r.RefereeTier" />
+                        <span class="assessment-status-badge @ReportStatusCss(r.Status)" style="font-size:.55rem;">@r.StatusLabel</span>
+                    </div>
+                    <div class="assessment-card-meta">
+                        <span>@r.RefereeCode</span>
+                        <span>@r.OfficialRole.Label()</span>
+                        <span>by @r.AuthorName</span>
+                    </div>
+                    <div class="assessment-card-match">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        @r.MatchTitle — @r.DateDisplay
+                        @if (r.HomeScore.HasValue && r.AwayScore.HasValue)
+                        {
+                            <span style="font-weight:600;color:var(--text-primary);margin-left:4px;">@r.ScoreDisplay</span>
+                        }
+                        <TierBadge Tier="r.CompetitionTier" />
+                    </div>
+                    <div class="report-card-summary-row">
+                        @if (r.TotalEvents > 0)
+                        {
+                            <span class="report-card-tag">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                @r.TotalEvents events
+                            </span>
+                        }
+                        @if (r.CriticalEventCount > 0)
+                        {
+                            <span class="report-card-tag critical">@r.CriticalEventCount critical</span>
+                        }
+                        @if (r.VideoClips.Count > 0)
+                        {
+                            <span class="report-card-tag">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                                @r.VideoClips.Count @L["reports.clips"]
+                            </span>
+                        }
+                        @{
+                            var revCount = ReviewCountLookup.GetValueOrDefault(r.Id);
+                        }
+                        @if (revCount > 0)
+                        {
+                            <span class="report-card-tag review-tag">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                @revCount @L["reports.reviews"]
+                            </span>
+                        }
+                    </div>
+                </div>
+                <div class="assessment-card-score" style="color:@UiHelpers.ScoreColor(r.OverallRating);">
+                    @r.OverallRating.ToString("F1")
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@* ── New Report Modal ── *@
+@if (ShowNewModal)
+{
+    <div class="modal-overlay open">
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-header">
+                <div class="modal-title">@L["reports.createNew"]</div>
+                <button class="modal-close" @onclick="() => ShowNewModal = false">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">@L["reports.selectFixture"]</label>
+                    <select class="form-select" @bind="NewFixtureId" @bind:after="OnNewFixtureChanged">
+                        <option value="0">— @L["assessments.chooseFixture"] —</option>
+                        @foreach (var f in AllFixtures)
+                        {
+                            <option value="@f.Id">@f.MatchTitle — @f.DateDisplay (@f.DivisionName)</option>
+                        }
+                    </select>
+                </div>
+
+                @if (NewFixtureId > 0 && SelectedNewFixture != null)
+                {
+                    var selectedFixture = SelectedNewFixture;
+                    if (selectedFixture != null)
+                    {
+                        <div class="form-group" style="margin-top:16px;">
+                            <label class="form-label">@L["reports.selectOfficial"]</label>
+                            @{
+                                var officials = GetAssignedOfficials(selectedFixture);
+                            }
+                            @if (!officials.Any())
+                            {
+                                <div style="color:var(--accent-orange);font-size:.82rem;padding:12px;background:rgba(255,109,0,0.06);border-radius:var(--radius-sm);border:1px solid rgba(255,109,0,0.12);">
+                                    No officials are assigned to this fixture. Assign officials first via the Fixtures page.
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="new-assessment-officials">
+                                    @foreach (var (role, assignment) in officials)
+                                    {
+                                        var existing = ExistingReportLookup.GetValueOrDefault((selectedFixture.Id, assignment.RefereeId, role));
+                                        var hasExisting = existing != null;
+
+                                        <div class="new-assessment-official-row @(hasExisting ? "has-existing" : "")"
+                                             @onclick="() => SelectNewOfficial(selectedFixture, assignment, role, existing)">
+                                            <AvatarPlaceholder Initials="@assignment.RefereeInitials" Size="36" FontSize=".78rem" />
+                                            <div style="flex:1;min-width:0;">
+                                                <div style="font-weight:600;font-size:.88rem;">@assignment.RefereeName</div>
+                                                <div style="font-size:.72rem;color:var(--text-dim);display:flex;gap:8px;align-items:center;margin-top:2px;">
+                                                    <span>@role.Label()</span>
+                                                    <TierBadge Tier="assignment.RefereeTier" />
+                                                </div>
+                                            </div>
+                                            @if (hasExisting)
+                                            {
+                                                <span class="assessment-status-badge @ReportStatusCss(existing!.Status)" style="font-size:.55rem;">
+                                                    @existing.StatusLabel
+                                                </span>
+                                                <span style="font-size:.7rem;color:var(--text-dim);">View / Edit</span>
+                                            }
+                                            else
+                                            {
+                                                <span style="font-size:.7rem;color:var(--accent-cyan);">Create →</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => ShowNewModal = false">@L["common.cancel"]</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<MatchOfficialReport> Filtered = new();
+    private List<(int Id, string Name)> ReportedReferees = new();
+    private List<Fixture> AllFixtures = new();
+    private (int total, int draft, int submitted, int published) Stats;
+
+    // Filters
+    private string? SearchQuery;
+    private int FilterRefereeId;
+    private ReportStatus? FilterStatus;
+    private string FilterMinRatingStr = "";
+    private string FilterEventTypeStr = "";
+
+    // New modal
+    private bool ShowNewModal;
+    private int NewFixtureId;
+    private Fixture? SelectedNewFixture;
+    private Dictionary<(int FixtureId, int RefereeId, OfficialRole Role), MatchOfficialReport> ExistingReportLookup = new();
+    private Dictionary<int, int> ReviewCountLookup = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        AllFixtures = await FixtureService.GetAllFixturesAsync();
+        ReportedReferees = await ReportService.GetReportedRefereesAsync();
+        Stats = await ReportService.GetStatusCountsAsync();
+        await ApplyFiltersAsync();
+    }
+
+    private void ViewReport(int id) => Nav.NavigateTo($"/reports/{id}");
+
+    private async Task ApplyFiltersAsync()
+    {
+        double? minRating = double.TryParse(FilterMinRatingStr, out var mr) ? mr : null;
+        EventType? eventType = int.TryParse(FilterEventTypeStr, out var et) ? (EventType)et : null;
+
+        Filtered = await ReportService.SearchAsync(SearchQuery, FilterRefereeId > 0 ? FilterRefereeId : null,
+            null, null, null, FilterStatus, minRating, eventType);
+
+        // Pre-fetch reviewer counts for display
+        ReviewCountLookup.Clear();
+        foreach (var r in Filtered)
+            ReviewCountLookup[r.Id] = await ReviewService.GetReviewerCountAsync(r.Id);
+    }
+
+    private async Task SetStatusFilter(ReportStatus? status)
+    {
+        FilterStatus = status;
+        await ApplyFiltersAsync();
+    }
+
+    private async Task ClearFilters()
+    {
+        SearchQuery = null;
+        FilterRefereeId = 0;
+        FilterStatus = null;
+        FilterMinRatingStr = "";
+        FilterEventTypeStr = "";
+        await ApplyFiltersAsync();
+    }
+
+    private void OpenNewModal()
+    {
+        NewFixtureId = 0;
+        SelectedNewFixture = null;
+        ExistingReportLookup.Clear();
+        ShowNewModal = true;
+    }
+
+    private async Task OnNewFixtureChanged()
+    {
+        SelectedNewFixture = null;
+        ExistingReportLookup.Clear();
+        if (NewFixtureId > 0)
+        {
+            SelectedNewFixture = await FixtureService.GetFixtureByIdAsync(NewFixtureId);
+            if (SelectedNewFixture != null)
+            {
+                foreach (var (role, assignment) in GetAssignedOfficials(SelectedNewFixture))
+                {
+                    var existing = await ReportService.FindExistingAsync(SelectedNewFixture.Id, assignment.RefereeId, role);
+                    if (existing != null)
+                        ExistingReportLookup[(SelectedNewFixture.Id, assignment.RefereeId, role)] = existing;
+                }
+            }
+        }
+    }
+
+    private List<(OfficialRole Role, OfficialAssignment Assignment)> GetAssignedOfficials(Fixture f)
+    {
+        var list = new List<(OfficialRole, OfficialAssignment)>();
+        if (f.Referee != null) list.Add((OfficialRole.Referee, f.Referee));
+        if (f.AssistantReferee1 != null) list.Add((OfficialRole.AssistantReferee1, f.AssistantReferee1));
+        if (f.AssistantReferee2 != null) list.Add((OfficialRole.AssistantReferee2, f.AssistantReferee2));
+        if (f.MatchOfficial != null) list.Add((OfficialRole.MatchOfficial, f.MatchOfficial));
+        return list;
+    }
+
+    private void SelectNewOfficial(Fixture fixture, OfficialAssignment assignment, OfficialRole role, MatchOfficialReport? existing)
+    {
+        ShowNewModal = false;
+        if (existing != null)
+        {
+            Nav.NavigateTo($"/reports/{existing.Id}");
+        }
+        else
+        {
+            Nav.NavigateTo($"/reports/new?fixtureId={fixture.Id}&refereeId={assignment.RefereeId}&role={(int)role}");
+        }
+    }
+
+    private static string ReportStatusCss(ReportStatus s) => s switch
+    {
+        ReportStatus.Draft => "status-draft",
+        ReportStatus.Submitted => "status-submitted",
+        ReportStatus.Published => "status-finalised",
+        _ => "status-draft"
+    };
+}

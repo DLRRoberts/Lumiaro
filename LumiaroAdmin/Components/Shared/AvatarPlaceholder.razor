@@ -1,0 +1,13 @@
+@* Circular avatar placeholder with initials *@
+
+<div class="profile-photo-placeholder"
+     style="width:@(Size)px;height:@(Size)px;font-size:@FontSize;border-width:@BorderWidth;">
+    @Initials
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Initials { get; set; } = "";
+    [Parameter] public int Size { get; set; } = 36;
+    [Parameter] public string FontSize { get; set; } = ".75rem";
+    [Parameter] public string BorderWidth { get; set; } = "2px";
+}

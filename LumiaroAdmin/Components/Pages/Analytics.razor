@@ -1,0 +1,387 @@
+@page "/analytics"
+@inject AnalyticsService AnalyticsService
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<PageTitle>Lumiaro — Performance Analytics</PageTitle>
+
+@* ── Header ── *@
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;flex-wrap:wrap;gap:16px;">
+    <div>
+        <h1 style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;margin-bottom:4px;">
+            Performance Analytics
+        </h1>
+        <p style="font-size:.85rem;color:var(--text-muted);font-weight:300;">
+            Season overview, referee rankings, competency trends, and tier readiness indicators.
+        </p>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;">
+        <MiniStat Value="@Fleet.TotalOfficials.ToString()" Label="Officials" Color="var(--accent-cyan)" />
+        <MiniStat Value="@Fleet.TotalMatchesAssessed.ToString()" Label="Assessed" Color="var(--accent-orange)" />
+        <MiniStat Value="@Fleet.TotalReportsPublished.ToString()" Label="Reports" Color="var(--accent-lime)" />
+    </div>
+</div>
+
+@* ── Fleet KPIs ── *@
+<div class="widget-grid">
+    <StatCard Label="Fleet Avg Rating" Value="@Fleet.AverageRating.ToString("F1")"
+              Change="@SeasonRatingTrend" Accent="cyan" />
+    <StatCard Label="Decision Accuracy" Value="@($"{Fleet.AverageAccuracy:F1}%")"
+              Change="@($"Target: ≥ 70% (UEFA elite standard)")" Accent="lime" />
+    <StatCard Label="Critical Incidents" Value="@Fleet.CriticalIncidents.ToString()"
+              Change="@($"Across {Fleet.TotalMatchesAssessed} matches assessed")" Accent="orange" />
+    <StatCard Label="Active Officials" Value="@Fleet.TotalOfficials.ToString()"
+              Change="@TierDistributionSummary" Accent="blue" />
+</div>
+
+@* ── Monthly Trends + Tier Distribution ── *@
+<div class="content-grid-2" style="margin-top:8px;">
+    @* Monthly trend chart *@
+    <div class="card" style="padding:20px 24px;">
+        <div class="section-title">
+            Season Rating Trend
+            <span class="accent-line"></span>
+        </div>
+        @if (Fleet.MonthlyTrends.Count > 0)
+        {
+            <div class="analytics-trend-chart">
+                <svg viewBox="0 0 600 200" class="trend-chart-svg">
+                    @{
+                        var trends = Fleet.MonthlyTrends;
+                        var maxVal = 10.0;
+                        var minVal = 0.0;
+                        var chartW = 560.0;
+                        var chartH = 160.0;
+                        var padL = 30.0;
+                        var padT = 10.0;
+                    }
+
+                    @* Grid lines *@
+                    @for (int g = 0; g <= 5; g++)
+                    {
+                        var gy = padT + chartH * g / 5.0;
+                        var gv = maxVal - (maxVal - minVal) * g / 5.0;
+                        <line x1="@padL" y1="@gy.ToString("F0")" x2="@(padL + chartW)" y2="@gy.ToString("F0")"
+                              stroke="rgba(255,255,255,0.06)" stroke-width="1" />
+                        <text><text x="@((padL - 6).ToString("F0"))" y="@((gy + 4).ToString("F0"))"
+                                    text-anchor="end" class="trend-axis-label">@gv.ToString("F0")</text></text>
+                    }
+
+                    @* Rating line *@
+                    @{
+                        var ratingPoints = new List<string>();
+                        for (int i = 0; i < trends.Count; i++)
+                        {
+                            var x = padL + (double)i / Math.Max(1, trends.Count - 1) * chartW;
+                            var y = padT + chartH - (trends[i].AvgRating - minVal) / (maxVal - minVal) * chartH;
+                            ratingPoints.Add($"{x:F1},{y:F1}");
+                        }
+                    }
+                    <polyline points="@string.Join(" ", ratingPoints)"
+                              fill="none" stroke="var(--accent-cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+
+                    @* Match volume bars *@
+                    @for (int i = 0; i < trends.Count; i++)
+                    {
+                        var bx = padL + (double)i / Math.Max(1, trends.Count - 1) * chartW - 8;
+                        var maxMatches = Math.Max(1, trends.Max(t => t.MatchCount));
+                        var bh = (double)trends[i].MatchCount / maxMatches * 40;
+                        var by = padT + chartH - bh;
+                        <rect x="@bx.ToString("F0")" y="@by.ToString("F0")" width="16" height="@bh.ToString("F0")"
+                              rx="2" fill="rgba(0,229,255,0.12)" />
+                    }
+
+                    @* Data points with labels *@
+                    @for (int i = 0; i < trends.Count; i++)
+                    {
+                        var x = padL + (double)i / Math.Max(1, trends.Count - 1) * chartW;
+                        var y = padT + chartH - (trends[i].AvgRating - minVal) / (maxVal - minVal) * chartH;
+                        <circle cx="@x.ToString("F1")" cy="@y.ToString("F1")" r="4"
+                                fill="var(--accent-cyan)" stroke="var(--panel-card)" stroke-width="2" />
+                        <text><text x="@x.ToString("F1")" y="@((y - 12).ToString("F1"))"
+                                    text-anchor="middle" class="trend-point-label">@trends[i].AvgRating.ToString("F1")</text></text>
+                        <text><text x="@x.ToString("F1")" y="@((padT + chartH + 18).ToString("F1"))"
+                                    text-anchor="middle" class="trend-month-label">@trends[i].Month</text></text>
+                    }
+                </svg>
+            </div>
+            <div style="display:flex;gap:20px;margin-top:10px;font-size:.75rem;color:var(--text-dim);">
+                <span><span style="display:inline-block;width:12px;height:2px;background:var(--accent-cyan);vertical-align:middle;margin-right:5px;"></span> Avg Rating</span>
+                <span><span style="display:inline-block;width:12px;height:8px;background:rgba(0,229,255,0.12);vertical-align:middle;margin-right:5px;border-radius:2px;"></span> Match Volume</span>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state-inline">No trend data available yet.</div>
+        }
+    </div>
+
+    @* Tier distribution *@
+    <div class="card" style="padding:20px 24px;">
+        <div class="section-title">
+            Performance by Tier
+            <span class="accent-line"></span>
+        </div>
+        <div class="tier-distribution-list">
+            @foreach (var tier in TierOrder)
+            {
+                var count = Fleet.OfficialsByTier.GetValueOrDefault(tier, 0);
+                var avgRating = Fleet.AvgRatingByTier.GetValueOrDefault(tier, 0);
+                var maxCount = Fleet.OfficialsByTier.Values.DefaultIfEmpty(1).Max();
+                var barWidth = maxCount > 0 ? (double)count / maxCount * 100 : 0;
+
+                <div class="tier-dist-row">
+                    <div class="tier-dist-label">
+                        <TierBadge Tier="tier" />
+                        <span class="tier-dist-count">@count officials</span>
+                    </div>
+                    <div class="tier-dist-bar-wrap">
+                        <div class="tier-dist-bar" style="width:@(barWidth)%;background:@UiHelpers.ScoreColor(avgRating);"></div>
+                    </div>
+                    <div class="tier-dist-rating" style="color:@UiHelpers.ScoreColor(avgRating);">
+                        @(avgRating > 0 ? avgRating.ToString("F1") : "—")
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@* ── Rankings Table ── *@
+<div class="table-wrap" style="margin-top:8px;">
+    <div class="table-header">
+        <div class="table-header-left">
+            <div class="table-title">Official Rankings</div>
+            <span class="table-count">@FilteredRankings.Count officials</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+            <div class="filter-bar">
+                <button class="filter-pill @(FilterTier == null ? "active" : "")" @onclick="() => SetTierFilter(null)">All</button>
+                @foreach (var tier in TierOrder)
+                {
+                    <button class="filter-pill @(FilterTier == tier ? "active" : "")"
+                            @onclick="() => SetTierFilter(tier)">@UiHelpers.TierLabel(tier)</button>
+                }
+            </div>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:40px;">#</th>
+                <th>Official</th>
+                <th>Tier</th>
+                <th class="sortable-th @(SortBy == SortEnum.Matches ? "sorted" : "")" @onclick="() => SetSort(SortEnum.Matches)">Matches</th>
+                <th class="sortable-th @(SortBy == SortEnum.Rating ? "sorted" : "")" @onclick="() => SetSort(SortEnum.Rating)">Avg Rating</th>
+                <th class="sortable-th @(SortBy == SortEnum.Consistency ? "sorted" : "")" @onclick="() => SetSort(SortEnum.Consistency)">Consistency</th>
+                <th class="sortable-th @(SortBy == SortEnum.Accuracy ? "sorted" : "")" @onclick="() => SetSort(SortEnum.Accuracy)">Accuracy</th>
+                <th class="sortable-th @(SortBy == SortEnum.Cards ? "sorted" : "")" @onclick="() => SetSort(SortEnum.Cards)">Cards/Game</th>
+                <th class="sortable-th @(SortBy == SortEnum.Trend ? "sorted" : "")" @onclick="() => SetSort(SortEnum.Trend)">Trend</th>
+                <th>Readiness</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var entry in FilteredRankings)
+            {
+                <tr class="clickable-row" @onclick="() => GoToProfile(entry.RefereeId)">
+                    <td class="rank-cell">
+                        @if (entry.Rank <= 3)
+                        {
+                            <span class="rank-medal rank-@entry.Rank">@entry.Rank</span>
+                        }
+                        else
+                        {
+                            <span class="rank-num">@entry.Rank</span>
+                        }
+                    </td>
+                    <td>
+                        <div class="table-name-cell">
+                            <AvatarPlaceholder Initials="@entry.Initials" />
+                            <div>
+                                <div class="table-name">@entry.Name</div>
+                                <div class="table-name-sub">@entry.Code · P@(entry.Percentile.ToString("F0"))%</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><TierBadge Tier="entry.Tier" /></td>
+                    <td class="mono-cell">@entry.MatchCount</td>
+                    <td>
+                        <span class="rating-pill" style="color:@UiHelpers.ScoreColor(entry.AvgRating);border-color:@UiHelpers.ScoreColor(entry.AvgRating);">
+                            @entry.AvgRating.ToString("F1")
+                        </span>
+                    </td>
+                    <td>
+                        <span class="consistency-indicator @ConsistencyClass(entry.ConsistencyIndex)">
+                            σ @entry.ConsistencyIndex.ToString("F2")
+                        </span>
+                    </td>
+                    <td class="mono-cell">
+                        @if (entry.AccuracyPercent > 0)
+                        {
+                            <span style="color:@AccuracyColor(entry.AccuracyPercent)">@entry.AccuracyPercent.ToString("F0")%</span>
+                        }
+                        else
+                        {
+                            <span style="color:var(--text-dim);">—</span>
+                        }
+                    </td>
+                    <td class="mono-cell">@entry.CardsPerGame.ToString("F1")</td>
+                    <td>
+                        <span style="@UiHelpers.TrendClass(entry.TrendChange);font-size:.82rem;font-family:'JetBrains Mono',monospace;">
+                            @UiHelpers.TrendArrow(entry.TrendChange)
+                        </span>
+                    </td>
+                    <td>
+                        <span class="readiness-pill readiness-@entry.TierReadiness.ToLower().Replace(" ", "-")">
+                            @entry.TierReadiness
+                        </span>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@* ── Quick Insights ── *@
+<div class="content-grid-2" style="margin-top:8px;">
+    <div class="card" style="padding:20px 24px;">
+        <div class="section-title">
+            Top Performers
+            <span class="accent-line"></span>
+        </div>
+        @foreach (var p in Fleet.TopPerformers)
+        {
+            <div class="insight-row">
+                <div class="table-name-cell">
+                    <AvatarPlaceholder Initials="@p.Initials" Size="32" FontSize=".65rem" BorderWidth="1.5px" />
+                    <div>
+                        <div class="table-name" style="font-size:.85rem;">@p.Name</div>
+                        <div class="table-name-sub">@p.MatchCount matches · <TierBadge Tier="p.Tier" /></div>
+                    </div>
+                </div>
+                <span class="rating-pill" style="color:@UiHelpers.ScoreColor(p.AvgRating);border-color:@UiHelpers.ScoreColor(p.AvgRating);">
+                    @p.AvgRating.ToString("F1")
+                </span>
+            </div>
+        }
+        @if (Fleet.TopPerformers.Count == 0)
+        {
+            <div class="empty-state-inline">Insufficient data for rankings.</div>
+        }
+    </div>
+
+    <div class="card" style="padding:20px 24px;">
+        <div class="section-title">
+            Most Improved
+            <span class="accent-line"></span>
+        </div>
+        @foreach (var p in Fleet.MostImproved)
+        {
+            <div class="insight-row">
+                <div class="table-name-cell">
+                    <AvatarPlaceholder Initials="@p.Initials" Size="32" FontSize=".65rem" BorderWidth="1.5px" />
+                    <div>
+                        <div class="table-name" style="font-size:.85rem;">@p.Name</div>
+                        <div class="table-name-sub">@p.MatchCount matches · <TierBadge Tier="p.Tier" /></div>
+                    </div>
+                </div>
+                <span style="@UiHelpers.TrendClass(p.TrendChange);font-family:'JetBrains Mono',monospace;font-size:.85rem;">
+                    @UiHelpers.TrendArrow(p.TrendChange)
+                </span>
+            </div>
+        }
+        @if (Fleet.MostImproved.Count == 0)
+        {
+            <div class="empty-state-inline">Insufficient data for trend analysis.</div>
+        }
+    </div>
+</div>
+
+@code {
+    private FleetAnalytics Fleet = new();
+    private List<RefereeRankEntry> AllRankings = new();
+    private List<RefereeRankEntry> FilteredRankings = new();
+    private RefereeTier? FilterTier;
+    private SortEnum SortBy = SortEnum.Rating;
+
+    private readonly RefereeTier[] TierOrder = {
+        RefereeTier.FifaInternational, RefereeTier.PremierLeague,
+        RefereeTier.Championship, RefereeTier.LeagueOne,
+        RefereeTier.LeagueTwo, RefereeTier.NationalLeague, RefereeTier.Grassroots
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        Fleet = await AnalyticsService.GetFleetAnalyticsAsync();
+        AllRankings = Fleet.AllRankings;
+        ApplyFilters();
+    }
+
+    private void SetTierFilter(RefereeTier? tier)
+    {
+        FilterTier = tier;
+        InvokeAsync(ApplyFilters);
+    }
+
+    private void SetSort(SortEnum sort)
+    {
+        SortBy = sort;
+        InvokeAsync(ApplyFilters);
+    }
+
+    private async Task ApplyFilters()
+    {
+        FilteredRankings = await AnalyticsService.GetRankingsAsync(FilterTier, SortBy.ToString());
+    }
+
+    private void GoToProfile(int id) => Nav.NavigateTo($"/analytics/{id}");
+
+    private string SeasonRatingTrend
+    {
+        get
+        {
+            if (Fleet.MonthlyTrends.Count < 2) return "Insufficient data";
+            var last = Fleet.MonthlyTrends.Last().AvgRating;
+            var first = Fleet.MonthlyTrends.First().AvgRating;
+            var diff = last - first;
+            return diff >= 0 ? $"▲ +{diff:F1} season progression" : $"▼ {diff:F1} season regression";
+        }
+    }
+
+    private string TierDistributionSummary
+    {
+        get
+        {
+            var pl = Fleet.OfficialsByTier.GetValueOrDefault(RefereeTier.PremierLeague, 0);
+            var ch = Fleet.OfficialsByTier.GetValueOrDefault(RefereeTier.Championship, 0);
+            return $"{pl} Premier · {ch} Championship";
+        }
+    }
+
+    private static string ConsistencyClass(double sigma) => sigma switch
+    {
+        <= 0.5 => "consistency-excellent",
+        <= 0.8 => "consistency-good",
+        <= 1.2 => "consistency-moderate",
+        _ => "consistency-poor"
+    };
+
+    private static string AccuracyColor(double pct) => pct switch
+    {
+        >= 85 => "var(--accent-lime)",
+        >= 70 => "var(--accent-cyan)",
+        >= 55 => "var(--accent-orange)",
+        _ => "var(--accent-red)"
+    };
+    
+    public enum SortEnum
+    {
+        Rating,
+        Matches,
+        Consistency,
+        Accuracy,
+        Cards,
+        Trend
+    }
+}

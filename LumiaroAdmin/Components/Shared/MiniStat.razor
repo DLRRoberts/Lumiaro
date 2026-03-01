@@ -1,0 +1,10 @@
+<div style="text-align:center;padding:8px 20px;background:var(--panel-dark);border:1px solid var(--border-subtle);border-radius:var(--radius-md);">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:500;color:@Color;">@Value</div>
+    <div style="font-size:.55rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1.5px;font-family:'JetBrains Mono',monospace;">@Label</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Value { get; set; } = "";
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public string Color { get; set; } = "var(--accent-cyan)";
+}

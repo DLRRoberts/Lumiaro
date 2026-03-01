@@ -1,0 +1,18 @@
+<div class="stat-card @Accent">
+    <div class="stat-label">@Label</div>
+    <div class="stat-value" style="color:var(--accent-@Accent);@(SmallValue ? "font-size:1.5rem;" : "")">
+        @Value
+    </div>
+    <div class="stat-change @ChangeClass">@Change</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter, EditorRequired] public string Value { get; set; } = "";
+    [Parameter] public string Change { get; set; } = "";
+    [Parameter] public string Accent { get; set; } = "cyan";
+    [Parameter] public bool SmallValue { get; set; }
+
+    private string ChangeClass => Change.StartsWith("▲") ? "up" :
+                                   Change.StartsWith("▼") ? "down" : "neutral";
+}

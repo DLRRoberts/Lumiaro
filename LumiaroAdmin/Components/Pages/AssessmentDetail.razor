@@ -1,0 +1,463 @@
+@page "/assessments/{Id:int}"
+@using LumiaroAdmin.Components.Pages.Components
+@using LumiaroAdmin.Data.Models
+@inject AssessmentService AssessmentService
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+@if (Assessment is null)
+{
+    <div style="text-align:center;padding:80px 32px;">
+        <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;">Assessment Not Found</h1>
+        <p style="color:var(--text-muted);margin-top:8px;">The requested assessment could not be located.</p>
+        <a href="/assessments" class="btn btn-primary" style="margin-top:20px;">Back to Assessments</a>
+    </div>
+}
+else
+{
+    <PageTitle>Lumiaro — Assessment: @Assessment.RefereeName</PageTitle>
+
+    <a href="/assessments" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+        Assessments
+    </a>
+
+    @* ── Assessment Header ── *@
+    <div class="assessment-detail-hero">
+        <div class="assessment-detail-hero-left">
+            <AvatarPlaceholder Initials="@Assessment.RefereeInitials" Size="64" FontSize="1.3rem" />
+            <div>
+                <div class="assessment-detail-name">@Assessment.RefereeName</div>
+                <div class="assessment-detail-meta">
+                    <span>@Assessment.RefereeCode</span>
+                    <span>@Assessment.OfficialRole.Label()</span>
+                    <TierBadge Tier="Assessment.RefereeTier" />
+                    <span class="assessment-status-badge @StatusCss(Assessment.Status)">@Assessment.StatusLabel</span>
+                </div>
+                <div class="assessment-detail-match">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    @Assessment.MatchTitle — @Assessment.DateDisplay
+                    <TierBadge Tier="Assessment.CompetitionTier" />
+                    @if (Assessment.Venue != null)
+                    {
+                        <span style="color:var(--text-dim);">@Assessment.Venue</span>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="assessment-detail-hero-right">
+            <div class="assessment-overall-score" style="color:@UiHelpers.ScoreColor(Assessment.OverallScore);">
+                @Assessment.OverallScore.ToString("F1")
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1.5px;">Overall Score</div>
+            <div class="assessment-sub-scores">
+                <div class="assessment-sub-score">
+                    <span class="assessment-sub-score-value" style="color:@UiHelpers.ScoreColor(Assessment.Technical.AverageScore);">@Assessment.Technical.AverageScore.ToString("F1")</span>
+                    <span class="assessment-sub-score-label">Technical</span>
+                </div>
+                <div class="assessment-sub-score">
+                    <span class="assessment-sub-score-value" style="color:@UiHelpers.ScoreColor(Assessment.Delegate.AverageScore);">@Assessment.Delegate.AverageScore.ToString("F1")</span>
+                    <span class="assessment-sub-score-label">Delegate</span>
+                </div>
+                @if (Assessment.Kmi.TotalIncidents > 0)
+                {
+                    <div class="assessment-sub-score">
+                        <span class="assessment-sub-score-value" style="color:@UiHelpers.ScoreColor(Assessment.Kmi.AccuracyPercent / 10);">@Assessment.Kmi.AccuracyPercent%</span>
+                        <span class="assessment-sub-score-label">KMI Accuracy</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* ── Actions ── *@
+    <div style="display:flex;gap:10px;margin:20px 0 28px;flex-wrap:wrap;">
+        <button class="btn btn-primary" @onclick="() => NavigateToAssessment(Assessment.Id)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit Assessment
+        </button>
+        @if (Assessment.Status == AssessmentStatus.Draft)
+        {
+            <button class="btn btn-secondary" @onclick="SubmitAssessment">Submit for Review</button>
+        }
+        @if (Assessment.Status == AssessmentStatus.Submitted)
+        {
+            <button class="btn btn-secondary" @onclick="MarkReviewed">Mark as Reviewed</button>
+        }
+        @if (Assessment.Status == AssessmentStatus.Reviewed)
+        {
+            <button class="btn btn-secondary" style="border-color:rgba(118,255,3,0.2);color:var(--accent-lime);" @onclick="FinaliseAssessment">Finalise</button>
+        }
+    </div>
+
+    @* ── Tab Navigation ── *@
+    <div class="profile-tabs" style="margin-bottom:24px;">
+        <button class="profile-tab @(ActiveTab == "kmi" ? "active" : "")" @onclick="SetKmiActiveTab">
+            KMI Panel Report
+        </button>
+        <button class="profile-tab @(ActiveTab == "technical" ? "active" : "")" @onclick="SetTechnicalActiveTab">
+            Technical Report
+        </button>
+        <button class="profile-tab @(ActiveTab == "delegate" ? "active" : "")" @onclick="SetDelegateActiveTab">
+            Delegate Report
+        </button>
+        <button class="profile-tab @(ActiveTab == "match" ? "active" : "")" @onclick="SetMatchActiveTab">
+            Match Data
+        </button>
+        <button class="profile-tab @(ActiveTab == "summary" ? "active" : "")" @onclick="() => SetSummaryActiveTab()">
+            Summary
+        </button>
+    </div>
+
+    @* ── KMI Panel Report ── *@
+    @if (ActiveTab == "kmi")
+    {
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">Key Match Incidents (KMI) Panel Report</div>
+                <div class="assessment-section-subtitle">Independent panel evaluation of critical on-field and VAR decisions</div>
+            </div>
+
+            @if (Assessment.Kmi.TotalIncidents == 0)
+            {
+                <div style="text-align:center;padding:32px;color:var(--text-dim);">
+                    @if (Assessment.OfficialRole != OfficialRole.Referee)
+                    {
+                        <span>KMI reports are not applicable for @Assessment.OfficialRole.Label() roles.</span>
+                    }
+                    else
+                    {
+                        <span>No key match incidents recorded.</span>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="kmi-summary-bar">
+                    <div class="kmi-summary-item">
+                        <span class="kmi-summary-value">@Assessment.Kmi.TotalIncidents</span>
+                        <span class="kmi-summary-label">Incidents</span>
+                    </div>
+                    <div class="kmi-summary-item">
+                        <span class="kmi-summary-value" style="color:var(--accent-lime);">@Assessment.Kmi.CorrectDecisions</span>
+                        <span class="kmi-summary-label">Correct</span>
+                    </div>
+                    <div class="kmi-summary-item">
+                        <span class="kmi-summary-value" style="color:var(--accent-red);">@(Assessment.Kmi.TotalIncidents - Assessment.Kmi.CorrectDecisions)</span>
+                        <span class="kmi-summary-label">Incorrect</span>
+                    </div>
+                    <div class="kmi-summary-item">
+                        <span class="kmi-summary-value" style="color:@UiHelpers.ScoreColor(Assessment.Kmi.AccuracyPercent / 10);">@Assessment.Kmi.AccuracyPercent%</span>
+                        <span class="kmi-summary-label">Accuracy</span>
+                    </div>
+                </div>
+
+                @foreach (var incident in Assessment.Kmi.Incidents)
+                {
+                    <div class="kmi-incident @(incident.OriginalDecisionCorrect ? "correct" : "incorrect")">
+                        <div class="kmi-incident-header">
+                            <div class="kmi-incident-minute">@(incident.Minute)'</div>
+                            <div class="kmi-incident-type">@incident.DecisionType</div>
+                            <div class="kmi-incident-verdict">
+                                @if (incident.OriginalDecisionCorrect)
+                                {
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-lime)" stroke-width="2.5" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span style="color:var(--accent-lime);">Correct</span>
+                                }
+                                else
+                                {
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" stroke-width="2" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                    <span style="color:var(--accent-red);">Incorrect</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="kmi-incident-description">@incident.Description</div>
+                        <div class="kmi-incident-details">
+                            <div class="kmi-votes">
+                                <span class="kmi-vote-label">Panel Vote:</span>
+                                <span style="color:var(--accent-lime);">@incident.PanelVotesCorrect ✓</span>
+                                <span style="color:var(--accent-red);">@incident.PanelVotesIncorrect ✗</span>
+                            </div>
+                            @if (incident.VarInterventionRequired)
+                            {
+                                <div class="kmi-var-flag @(incident.VarInterventionMade ? "acted" : "missed")">
+                                    VAR: @(incident.VarInterventionMade ? "Intervention made" : "Should have intervened")
+                                </div>
+                            }
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(incident.Rationale))
+                        {
+                            <div class="kmi-incident-rationale">
+                                <span style="font-weight:500;color:var(--text-muted);font-size:.72rem;">Rationale:</span>
+                                @incident.Rationale
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Assessment.Kmi.PanelNotes))
+                {
+                    <div class="assessment-notes-block">
+                        <div class="assessment-notes-label">Panel Notes</div>
+                        <div class="assessment-notes-text">@Assessment.Kmi.PanelNotes</div>
+                    </div>
+                }
+            }
+        </div>
+    }
+
+    @* ── Technical Performance Report ── *@
+    @if (ActiveTab == "technical")
+    {
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">Technical Performance Report</div>
+                <div class="assessment-section-subtitle">
+                    Reviewed by <span style="color:var(--text-primary);font-weight:500;">@Assessment.Technical.ReviewerName</span>
+                    — Average: <span style="color:@UiHelpers.ScoreColor(Assessment.Technical.AverageScore);font-weight:600;">@Assessment.Technical.AverageScore.ToString("F1")</span>
+                </div>
+            </div>
+
+            <div class="competency-grid">
+                <CompetencyComponent Title="Application of Law" Comp=Assessment.Technical.ApplicationOfLaw Key="law"> </CompetencyComponent>
+                <CompetencyComponent Title="Positioning & Movement" Comp=Assessment.Technical.PositioningAndMovement Key="positioning"></CompetencyComponent>
+                <CompetencyComponent Title="Fitness & Work Rate" Comp=Assessment.Technical.FitnessAndWorkRate Key="fitness"></CompetencyComponent>
+                <CompetencyComponent Title="Match Control" Comp=Assessment.Technical.MatchControl Key="control"></CompetencyComponent>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Assessment.Technical.OverallNotes))
+            {
+                <div class="assessment-notes-block">
+                    <div class="assessment-notes-label">Reviewer's Overall Notes</div>
+                    <div class="assessment-notes-text">@Assessment.Technical.OverallNotes</div>
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Delegate Report ── *@
+    @if (ActiveTab == "delegate")
+    {
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">Match Delegate Report</div>
+                <div class="assessment-section-subtitle">
+                    Assessed by <span style="color:var(--text-primary);font-weight:500;">@Assessment.Delegate.DelegateName</span>
+                    — Average: <span style="color:@UiHelpers.ScoreColor(Assessment.Delegate.AverageScore);font-weight:600;">@Assessment.Delegate.AverageScore.ToString("F1")</span>
+                </div>
+            </div>
+
+            <div class="competency-grid">
+                <CompetencyComponent Title="Management of Game" Comp=Assessment.Delegate.ManagementOfGame Key="management"> </CompetencyComponent>
+                <CompetencyComponent Title="Communication" Comp=Assessment.Delegate.Communication Key="communication"> </CompetencyComponent>
+                <CompetencyComponent Title="Consistency" Comp=Assessment.Delegate.Consistency Key="consistency"> </CompetencyComponent>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Assessment.Delegate.OverallNotes))
+            {
+                <div class="assessment-notes-block">
+                    <div class="assessment-notes-label">Delegate's Overall Notes</div>
+                    <div class="assessment-notes-text">@Assessment.Delegate.OverallNotes</div>
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Match Data ── *@
+    @if (ActiveTab == "match")
+    {
+        var m = Assessment.MatchReport;
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">Technical Data &amp; Match Statistics</div>
+                <div class="assessment-section-subtitle">Statistical analysis and physical performance data</div>
+            </div>
+
+            <div class="match-stats-grid">
+                <div class="match-stat-card">
+                    <div class="match-stat-value" style="color:var(--accent-orange);">@m.YellowCards</div>
+                    <div class="match-stat-label">Yellow Cards</div>
+                </div>
+                <div class="match-stat-card">
+                    <div class="match-stat-value" style="color:var(--accent-red);">@m.RedCards</div>
+                    <div class="match-stat-label">Red Cards</div>
+                </div>
+                <div class="match-stat-card">
+                    <div class="match-stat-value" style="color:var(--accent-cyan);">@m.PenaltiesAwarded</div>
+                    <div class="match-stat-label">Penalties</div>
+                </div>
+                <div class="match-stat-card">
+                    <div class="match-stat-value">@m.FoulsGiven</div>
+                    <div class="match-stat-label">Fouls Given</div>
+                </div>
+                <div class="match-stat-card">
+                    <div class="match-stat-value">@m.OffsidesCalled</div>
+                    <div class="match-stat-label">Offsides</div>
+                </div>
+                <div class="match-stat-card">
+                    <div class="match-stat-value" style="color:var(--accent-lime);">@m.DistanceCoveredKm.ToString("F1")</div>
+                    <div class="match-stat-label">Distance (km)</div>
+                </div>
+                <div class="match-stat-card">
+                    <div class="match-stat-value">@m.AvgSprintSpeedKmh.ToString("F1")</div>
+                    <div class="match-stat-label">Avg Sprint (km/h)</div>
+                </div>
+                <div class="match-stat-card">
+                    <div class="match-stat-value">@m.HighIntensityRuns</div>
+                    <div class="match-stat-label">High-Intensity Runs</div>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(m.IncidentNotes))
+            {
+                <div class="assessment-notes-block">
+                    <div class="assessment-notes-label">Incident Notes</div>
+                    <div class="assessment-notes-text">@m.IncidentNotes</div>
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(m.VarInteractionNotes))
+            {
+                <div class="assessment-notes-block">
+                    <div class="assessment-notes-label">VAR Interaction Notes</div>
+                    <div class="assessment-notes-text">@m.VarInteractionNotes</div>
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Summary ── *@
+    @if (ActiveTab == "summary")
+    {
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">Assessment Summary</div>
+                <div class="assessment-section-subtitle">
+                    Created by <span style="color:var(--text-primary);font-weight:500;">@Assessment.CreatedBy</span>
+                    on @Assessment.CreatedAt.ToString("dd MMM yyyy HH:mm")
+                    @if (Assessment.UpdatedAt.HasValue)
+                    {
+                        <span> — Last updated @Assessment.UpdatedAt.Value.ToString("dd MMM yyyy HH:mm")</span>
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Assessment.SummaryNotes))
+            {
+                <div class="assessment-notes-block">
+                    <div class="assessment-notes-label">Performance Summary</div>
+                    <div class="assessment-notes-text">@Assessment.SummaryNotes</div>
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Assessment.Recommendations))
+            {
+                <div class="assessment-notes-block">
+                    <div class="assessment-notes-label">Recommendations</div>
+                    <div class="assessment-notes-text">@Assessment.Recommendations</div>
+                </div>
+            }
+
+            @* Score breakdown table *@
+            <div class="section-title" style="margin-top:24px;">
+                Score Breakdown
+                <span class="accent-line"></span>
+            </div>
+            <table class="data-table" style="margin-top:12px;">
+                <thead><tr>
+                    <th>Report</th><th>Assessor</th><th>Category</th><th style="text-align:right;">Score</th>
+                </tr></thead>
+                <tbody>
+                    <tr>
+                        <td rowspan="4" style="font-weight:500;">Technical</td>
+                        <td rowspan="4" style="color:var(--text-muted);">@Assessment.Technical.ReviewerName</td>
+                        <td>Application of Law</td>
+                        <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:@UiHelpers.ScoreColor(Assessment.Technical.ApplicationOfLaw.Score);">@Assessment.Technical.ApplicationOfLaw.Score.ToString("F1")</td>
+                    </tr>
+                    <tr><td>Positioning &amp; Movement</td><td style="text-align:right;font-family:'JetBrains Mono',monospace;color:@UiHelpers.ScoreColor(Assessment.Technical.PositioningAndMovement.Score);">@Assessment.Technical.PositioningAndMovement.Score.ToString("F1")</td></tr>
+                    <tr><td>Fitness &amp; Work Rate</td><td style="text-align:right;font-family:'JetBrains Mono',monospace;color:@UiHelpers.ScoreColor(Assessment.Technical.FitnessAndWorkRate.Score);">@Assessment.Technical.FitnessAndWorkRate.Score.ToString("F1")</td></tr>
+                    <tr><td>Match Control</td><td style="text-align:right;font-family:'JetBrains Mono',monospace;color:@UiHelpers.ScoreColor(Assessment.Technical.MatchControl.Score);">@Assessment.Technical.MatchControl.Score.ToString("F1")</td></tr>
+                    <tr style="border-top:1px solid var(--border-medium);">
+                        <td rowspan="3" style="font-weight:500;">Delegate</td>
+                        <td rowspan="3" style="color:var(--text-muted);">@Assessment.Delegate.DelegateName</td>
+                        <td>Management of Game</td>
+                        <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:@UiHelpers.ScoreColor(Assessment.Delegate.ManagementOfGame.Score);">@Assessment.Delegate.ManagementOfGame.Score.ToString("F1")</td>
+                    </tr>
+                    <tr><td>Communication</td><td style="text-align:right;font-family:'JetBrains Mono',monospace;color:@UiHelpers.ScoreColor(Assessment.Delegate.Communication.Score);">@Assessment.Delegate.Communication.Score.ToString("F1")</td></tr>
+                    <tr><td>Consistency</td><td style="text-align:right;font-family:'JetBrains Mono',monospace;color:@UiHelpers.ScoreColor(Assessment.Delegate.Consistency.Score);">@Assessment.Delegate.Consistency.Score.ToString("F1")</td></tr>
+                    @if (Assessment.Kmi.TotalIncidents > 0)
+                    {
+                        <tr style="border-top:1px solid var(--border-medium);">
+                            <td style="font-weight:500;">KMI Panel</td>
+                            <td style="color:var(--text-muted);">Independent Panel</td>
+                            <td>Decision Accuracy</td>
+                            <td style="text-align:right;font-family:'JetBrains Mono',monospace;color:@UiHelpers.ScoreColor(Assessment.Kmi.AccuracyPercent / 10);">@Assessment.Kmi.AccuracyPercent%</td>
+                        </tr>
+                    }
+                    <tr style="border-top:2px solid var(--border-strong);font-weight:700;">
+                        <td colspan="3">Overall Assessment Score</td>
+                        <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:@UiHelpers.ScoreColor(Assessment.OverallScore);">@Assessment.OverallScore.ToString("F1")</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Assessment? Assessment;
+    private string ActiveTab = "kmi";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Assessment = await AssessmentService.GetByIdAsync(Id);
+    }
+    
+    // ── Status helpers ──
+    private void SubmitAssessment() { if (Assessment != null) { Assessment.Status = AssessmentStatus.Submitted; AssessmentService.UpdateAsync(Assessment); } }
+    private void MarkReviewed() { if (Assessment != null) { Assessment.Status = AssessmentStatus.Reviewed; AssessmentService.UpdateAsync(Assessment); } }
+    private void FinaliseAssessment() { if (Assessment != null) { Assessment.Status = AssessmentStatus.Finalised; AssessmentService.UpdateAsync(Assessment); } }
+
+    private static string StatusCss(AssessmentStatus s) => s switch
+    {
+        AssessmentStatus.Draft => "status-draft",
+        AssessmentStatus.Submitted => "status-submitted",
+        AssessmentStatus.Reviewed => "status-reviewed",
+        AssessmentStatus.Finalised => "status-finalised",
+        _ => "status-draft"
+    };
+
+    private void SetKmiActiveTab()
+    {
+        ActiveTab = "kmi";
+    }
+
+    private void SetTechnicalActiveTab()
+    {
+        ActiveTab = "technical";
+    }
+    
+    private void SetDelegateActiveTab()
+    {
+        ActiveTab = "delegate";
+    }
+
+    private void SetMatchActiveTab()
+    {
+        ActiveTab = "active";
+    }
+
+    private void SetSummaryActiveTab()
+    {
+        ActiveTab = "summary";
+    }
+
+    private Task NavigateToAssessment(int assessmentId)
+    {
+        var targetAddress = $"/assessments/edit/{assessmentId}";
+        Nav.NavigateTo(targetAddress);
+
+        return Task.CompletedTask;
+    }
+
+}

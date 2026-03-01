@@ -1,0 +1,487 @@
+@page "/assessments/new"
+@page "/assessments/edit/{Id:int}"
+@using LumiaroAdmin.Components.Pages.Components
+@using LumiaroAdmin.Data.Models
+@inject AssessmentService AssessmentService
+@inject FixtureService FixtureService
+@inject RefereeService RefereeService
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<PageTitle>Lumiaro — @(IsEdit ? "Edit" : "New") Assessment</PageTitle>
+
+<a href="@(IsEdit ? $"/assessments/{Id}" : "/assessments")" class="back-link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+    @(IsEdit ? "Back to Assessment" : "Assessments")
+</a>
+
+<h1 style="font-family:'Playfair Display',serif;font-size:1.4rem;margin-bottom:4px;">
+    @(IsEdit ? "Edit Assessment" : "New Assessment")
+</h1>
+
+@if (ContextFixture != null && ContextReferee != null)
+{
+    <div class="assessment-form-context">
+        <AvatarPlaceholder Initials="@ContextReferee.Initials" Size="42" FontSize=".88rem" />
+        <div>
+            <div style="font-weight:600;font-size:.92rem;">@ContextReferee.FullName — @ContextRole.Label()</div>
+            <div style="font-size:.78rem;color:var(--text-dim);display:flex;gap:8px;align-items:center;margin-top:2px;">
+                <span>@ContextReferee.RefCode</span>
+                <TierBadge Tier="ContextReferee.Tier" />
+                <span>@ContextFixture.MatchTitle — @ContextFixture.DateDisplay</span>
+            </div>
+        </div>
+    </div>
+}
+else if (!IsEdit)
+{
+    <div style="color:var(--accent-red);padding:20px;font-size:.9rem;">
+        Missing fixture or referee context. Please create assessments from the Assessments page.
+    </div>
+}
+
+@if (Model != null)
+{
+    @* ── Tab Navigation ── *@
+    <div class="profile-tabs" style="margin:24px 0 20px;">
+        <button class="profile-tab @(FormTab == "technical" ? "active" : "")" @onclick="AssignTabTechnical">Technical Report</button>
+        <button class="profile-tab @(FormTab == "delegate" ? "active" : "")" @onclick="AssignTabDelegate">Delegate Report</button>
+        <button class="profile-tab @(FormTab == "match" ? "active" : "")" @onclick="AssignTabMatch">Match Data</button>
+        <button class="profile-tab @(FormTab == "summary" ? "active" : "")" @onclick="AssignTabSummary">Summary &amp; Overall</button>
+    </div>
+
+    @* ── Technical Report ── *@
+    @if (FormTab == "technical")
+    {
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">Technical Performance Report</div>
+                <div class="assessment-section-subtitle">Evaluated by a former senior referee using video footage</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Performance Reviewer Name</label>
+                <input type="text" class="form-input" placeholder="e.g. Mike Dean" @bind="Model.TechnicalReviewerName" />
+            </div>
+
+            <div class="assessment-form-competency-grid">
+                <ScoreInputComponent Title="Application of Law" Description="Correctness and consistency in penalising offences" 
+                                     GetNotes="@GetLawNotes(Model)" SetNotes="@SetLawNotes" 
+                                     GetScore="@GetScore(Model)" SetScore="@SetScore">
+                </ScoreInputComponent>
+                <ScoreInputComponent Title="Positioning & Movement" Description="Ability to maintain credible viewing angles" 
+                                     GetNotes="@GetTechPositioningNotes(Model)" SetNotes="@SetTechPositioningNotes" 
+                                     GetScore="@GetTechPositioningScore(Model)" SetScore="@SetTechPositioningScore">
+                </ScoreInputComponent>
+                <ScoreInputComponent Title="Fitness & Work Rate" Description="Ability to keep up with the pace of play" 
+                                     GetNotes="@GetTechFitnessNotes(Model)" SetNotes="@SetTechFitnessNotes" 
+                                     GetScore="@GetTechFitnessScore(Model)" SetScore="@SetTechFitnessScore">
+                </ScoreInputComponent>
+                <ScoreInputComponent Title="Match Control" Description="Remaining calm and in control of the environment" 
+                                     GetNotes="@GetTechControlNotes(Model)" SetNotes="@SetTechControlNotes" 
+                                     GetScore="@GetTechControlScore(Model)" SetScore="@SetTechControlScore">
+                </ScoreInputComponent>
+            </div>
+
+            <div class="form-group" style="margin-top:16px;">
+                <label class="form-label">Reviewer's Overall Notes</label>
+                <textarea class="form-input" rows="3" placeholder="Overall technical performance summary..." @bind="Model.TechOverallNotes"></textarea>
+            </div>
+        </div>
+    }
+
+    @* ── Delegate Report ── *@
+    @if (FormTab == "delegate")
+    {
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">Match Delegate Report</div>
+                <div class="assessment-section-subtitle">Assessed by former players and managers focusing on soft skills</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Match Delegate Name</label>
+                <input type="text" class="form-input" placeholder="e.g. Alan Shearer" @bind="Model.DelegateName" />
+            </div>
+
+            <div class="assessment-form-competency-grid">
+                <ScoreInputComponent Title="Management of Game" Description="Handling player attitudes and the mood of the match" 
+                                     GetNotes="@GetDelegateManagementNotes(Model)" SetNotes="@SetDelegateManagementNotes" 
+                                     GetScore="@GetDelegateManagementScore(Model)" SetScore="@SetDelegateManagementScore">
+                </ScoreInputComponent>
+                <ScoreInputComponent Title="Communication" Description="Effectiveness interacting with players and bench staff" 
+                                     GetNotes="@GetDelegateCommunicationNotes(Model)" SetNotes="@SetDelegateCommunicationNotes" 
+                                     GetScore="@GetDelegateCommunicationScore(Model)" SetScore="@SetDelegateCommunicationScore">
+                </ScoreInputComponent>
+                <ScoreInputComponent Title="Consistency" Description="Reliability of decision-making throughout the 90 minutes" 
+                                     GetNotes="@GetDelegateConsistencyNotes(Model)" SetNotes="@SetDelegateConsistencyNotes" 
+                                     GetScore="@GetDelegateConsistencyScore(Model)" SetScore="@SetDelegateConsistencyScore">
+                </ScoreInputComponent>
+            </div>
+
+            <div class="form-group" style="margin-top:16px;">
+                <label class="form-label">Delegate's Overall Notes</label>
+                <textarea class="form-input" rows="3" placeholder="Overall match delegate observations..." @bind="Model.DelOverallNotes"></textarea>
+            </div>
+        </div>
+    }
+
+    @* ── Match Data ── *@
+    @if (FormTab == "match")
+    {
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">Technical Data &amp; Match Statistics</div>
+                <div class="assessment-section-subtitle">Discipline, physical performance, and incident data</div>
+            </div>
+
+            <div class="assessment-form-stats-grid">
+                <div class="form-group">
+                    <label class="form-label">Yellow Cards</label>
+                    <input type="number" class="form-input" min="0" @bind="Model.Yellows" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Red Cards</label>
+                    <input type="number" class="form-input" min="0" @bind="Model.Reds" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Penalties Awarded</label>
+                    <input type="number" class="form-input" min="0" @bind="Model.Penalties" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Fouls Given</label>
+                    <input type="number" class="form-input" min="0" @bind="Model.Fouls" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Offsides Called</label>
+                    <input type="number" class="form-input" min="0" @bind="Model.Offsides" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Distance Covered (km)</label>
+                    <input type="number" class="form-input" step="0.1" min="0" @bind="Model.DistanceKm" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Avg Sprint Speed (km/h)</label>
+                    <input type="number" class="form-input" step="0.1" min="0" @bind="Model.AvgSprintSpeed" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">High-Intensity Runs</label>
+                    <input type="number" class="form-input" min="0" @bind="Model.HighIntensityRuns" />
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top:16px;">
+                <label class="form-label">Incident Notes</label>
+                <textarea class="form-input" rows="3" placeholder="Key incidents, disciplinary actions..." @bind="Model.IncidentNotes"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">VAR Interaction Notes</label>
+                <textarea class="form-input" rows="3" placeholder="VAR checks, interventions, audio review notes..." @bind="Model.VarNotes"></textarea>
+            </div>
+        </div>
+    }
+
+    @* ── Summary & Overall ── *@
+    @if (FormTab == "summary")
+    {
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">Overall Assessment</div>
+                <div class="assessment-section-subtitle">Final scoring and recommendations</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Overall Score (0.0 – 10.0)</label>
+                <div style="display:flex;align-items:center;gap:16px;">
+                    <input type="range" min="0" max="10" step="0.1" @bind="Model.OverallScore" @bind:event="oninput"
+                           style="flex:1;accent-color:var(--accent-cyan);" />
+                    <span class="assessment-overall-score-display" style="color:@UiHelpers.ScoreColor(Model.OverallScore);">
+                        @Model.OverallScore.ToString("F1")
+                    </span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Status</label>
+                <select class="form-select" @bind="Model.Status">
+                    <option value="@AssessmentStatus.Draft">Draft</option>
+                    <option value="@AssessmentStatus.Submitted">Submitted</option>
+                    <option value="@AssessmentStatus.Reviewed">Reviewed</option>
+                    <option value="@AssessmentStatus.Finalised">Finalised</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Performance Summary</label>
+                <textarea class="form-input" rows="4" placeholder="Comprehensive summary of the official's performance..." @bind="Model.SummaryNotes"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Recommendations</label>
+                <textarea class="form-input" rows="3" placeholder="Training recommendations, future appointment considerations..." @bind="Model.Recommendations"></textarea>
+            </div>
+        </div>
+    }
+
+    @* ── Form Actions ── *@
+    <div style="display:flex;gap:12px;margin-top:24px;padding-bottom:40px;">
+        <button class="btn btn-primary" @onclick="SaveAssessment">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+            @(IsEdit ? "Update Assessment" : "Create Assessment")
+        </button>
+        <button class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+    </div>
+
+    @if (ShowSaveToast)
+    {
+        <div class="assignment-toast success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>
+            Assessment @(IsEdit ? "updated" : "created") successfully
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "fixtureId")] public int? QFixtureId { get; set; }
+    [SupplyParameterFromQuery(Name = "refereeId")] public int? QRefereeId { get; set; }
+    [SupplyParameterFromQuery(Name = "role")] public int? QRole { get; set; }
+
+    private bool IsEdit => Id > 0;
+    private AssessmentFormModel? Model;
+    private Fixture? ContextFixture;
+    private Referee? ContextReferee;
+    private OfficialRole ContextRole;
+
+    private string FormTab = "technical";
+    private bool ShowSaveToast;
+    private System.Threading.Timer? _toastTimer;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsEdit)
+        {
+            var existing = await AssessmentService.GetByIdAsync(Id);
+            if (existing != null)
+            {
+                Model = AssessmentFormModel.FromAssessment(existing);
+                ContextFixture = await FixtureService.GetFixtureByIdAsync(existing.FixtureId);
+                ContextReferee = await RefereeService.GetRefereeByIdAsync(existing.RefereeId);
+                ContextRole = existing.OfficialRole;
+            }
+        }
+        else if (QFixtureId.HasValue && QRefereeId.HasValue)
+        {
+            ContextFixture = await FixtureService.GetFixtureByIdAsync(QFixtureId.Value);
+            ContextReferee = await RefereeService.GetRefereeByIdAsync(QRefereeId.Value);
+            ContextRole = QRole.HasValue ? (OfficialRole)QRole.Value : OfficialRole.Referee;
+
+            Model = new AssessmentFormModel
+            {
+                FixtureId = QFixtureId.Value,
+                RefereeId = QRefereeId.Value,
+                OfficialRole = ContextRole
+            };
+        }
+    }
+
+    private string? GetLawNotes(AssessmentFormModel formModel)
+    {
+        return formModel.TechLawNotes;
+    }
+
+    private string? GetTechPositioningNotes(AssessmentFormModel formModel)
+    {
+        return formModel.TechPositioningNotes;
+    }
+    
+    private string? GetTechFitnessNotes(AssessmentFormModel formModel)
+    {
+        return formModel.TechFitnessNotes;
+    }
+    
+    private string? GetTechControlNotes(AssessmentFormModel formModel)
+    {
+        return formModel.TechControlNotes;
+    }
+    
+    private void SetTechControlNotes((AssessmentFormModel formModel, string? value) input)
+    {
+        input.formModel.TechControlNotes = input.value;
+    }
+    
+    private double GetScore(AssessmentFormModel formModel)
+    {
+        return formModel.TechLawScore;
+    }
+    
+    private double GetTechPositioningScore(AssessmentFormModel formModel)
+    {
+        return formModel.TechPositioningScore;
+    }
+    
+    private double GetTechFitnessScore(AssessmentFormModel formModel)
+    {
+        return formModel.TechFitnessScore;
+    }
+    
+    private double GetTechControlScore(AssessmentFormModel formModel)
+    {
+        return formModel.TechControlScore;
+    }
+
+    private string? GetDelegateManagementNotes(AssessmentFormModel formModel)
+    {
+        return formModel.DelManagementNotes;
+    }
+    
+    private string? GetDelegateCommunicationNotes(AssessmentFormModel formModel)
+    {
+        return formModel.DelCommunicationNotes;
+    }
+    
+    private void SetDelegateCommunicationNotes((AssessmentFormModel formModel, string notes) input)
+    {
+        input.formModel.DelCommunicationNotes = input.notes;
+    }
+    
+    private string? GetDelegateConsistencyNotes(AssessmentFormModel formModel)
+    {
+        return formModel.DelConsistencyNotes;
+    }
+    
+    private void SetDelegateConsistencyNotes((AssessmentFormModel formModel, string notes) input)
+    {
+        input.formModel.DelConsistencyNotes = input.notes;
+    }
+    
+    private double GetDelegateConsistencyScore(AssessmentFormModel formModel)
+    {
+        return formModel.DelConsistencyScore;
+    }
+    
+    private void SetDelegateConsistencyScore((AssessmentFormModel formModel, double score) input)
+    {
+        input.formModel.DelConsistencyScore = input.score;
+    }
+    
+    private double GetDelegateManagementScore(AssessmentFormModel formModel)
+    {
+        return formModel.DelManagementScore;
+    }
+    
+    private double GetDelegateCommunicationScore(AssessmentFormModel formModel)
+    {
+        return formModel.DelCommunicationScore;
+    }
+    
+    private void SetDelegateCommunicationScore((AssessmentFormModel formModel, double value) input)
+    {
+        input.formModel.DelCommunicationScore = input.value;
+    }
+    
+    private void SetDelegateManagementNotes((AssessmentFormModel formModel, string notes) input)
+    {
+        input.formModel.DelManagementNotes = input.notes;
+    }
+    
+    private void SetDelegateManagementScore((AssessmentFormModel formModel, double score) input)
+    {
+        input.formModel.DelManagementScore = input.score;
+    }
+    
+    private void SetTechControlScore((AssessmentFormModel formModel, double score) input)
+    {
+        input.formModel.TechControlScore = input.score;
+    }
+    
+    private void SetLawNotes((AssessmentFormModel formModel, string? notes) input)
+    {
+        input.formModel.TechLawNotes = input.notes;
+    }
+    
+    private void SetTechPositioningNotes((AssessmentFormModel formModel, string? notes) input)
+    {
+        input.formModel.TechPositioningNotes = input.notes;
+    }
+    
+    private void SetTechFitnessNotes((AssessmentFormModel formModel, string? notes) input)
+    {
+        input.formModel.TechFitnessNotes = input.notes;
+    }
+
+    private void SetScore((AssessmentFormModel formModel, double score) input)
+    {
+        input.formModel.TechLawScore = input.score;
+    }
+
+    private void SetTechPositioningScore((AssessmentFormModel formModel, double score) input)
+    {
+        input.formModel.TechPositioningScore = input.score;
+    }
+    
+    private void SetTechFitnessScore((AssessmentFormModel formModel, double score) input)
+    {
+        input.formModel.TechFitnessScore = input.score;
+    }
+
+   private async Task SaveAssessment()
+    {
+        if (Model == null || ContextFixture == null || ContextReferee == null) return;
+
+        var assessment = Model.ToAssessment();
+
+        if (IsEdit)
+        {
+            await AssessmentService.UpdateAsync(assessment);
+        }
+        else
+        {
+            assessment = await AssessmentService.CreateAsync(assessment, ContextFixture, ContextReferee);
+            // Redirect to the newly created assessment
+            ShowSaveToast = true;
+            _toastTimer?.Dispose();
+            _toastTimer = new System.Threading.Timer(_ =>
+            {
+                InvokeAsync(() => Nav.NavigateTo($"/assessments/{assessment.Id}"));
+            }, null, 1500, System.Threading.Timeout.Infinite);
+            return;
+        }
+
+        ShowSaveToast = true;
+        _toastTimer?.Dispose();
+        _toastTimer = new System.Threading.Timer(_ =>
+        {
+            ShowSaveToast = false;
+            InvokeAsync(StateHasChanged);
+        }, null, 3000, System.Threading.Timeout.Infinite);
+    }
+
+    private void Cancel()
+    {
+        if (IsEdit)
+            Nav.NavigateTo($"/assessments/{Id}");
+        else
+            Nav.NavigateTo("/assessments");
+    }
+
+    private void AssignTabTechnical()
+    {
+        FormTab = "technical";
+    }
+
+    private void AssignTabDelegate()
+    {
+        FormTab = "delegate";
+    }
+
+    private void AssignTabMatch()
+    {
+        FormTab = "match";
+    }
+
+    private void AssignTabSummary()
+    {
+        FormTab = "summary";
+    }
+}

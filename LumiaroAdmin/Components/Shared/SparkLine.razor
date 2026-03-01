@@ -1,0 +1,53 @@
+@* Inline SVG sparkline for showing match-by-match form *@
+
+<svg viewBox="0 0 @Width @Height" class="sparkline-svg" style="width:@(Width)px;height:@(Height)px;">
+    @if (Values?.Count > 1)
+    {
+        var min = MinValue ?? Values.Min();
+        var max = MaxValue ?? Values.Max();
+        var range = max - min;
+        if (range == 0) range = 1;
+
+        var pad = 4;
+        var w = Width - pad * 2;
+        var h = Height - pad * 2;
+
+        var pointsList = new List<string>();
+        for (int i = 0; i < Values.Count; i++)
+        {
+            var x = pad + (double)i / (Values.Count - 1) * w;
+            var y = pad + h - (Values[i] - min) / range * h;
+            pointsList.Add($"{x:F1},{y:F1}");
+        }
+
+        @* Area fill *@
+        var areaPoints = string.Join(" ", pointsList);
+        var firstX = pad;
+        var lastX = pad + w;
+        <polygon points="@($"{firstX},{pad + h} {areaPoints} {lastX},{pad + h}")"
+                 fill="@($"rgba({FillRgb},0.12)")" />
+
+        @* Line *@
+        <polyline points="@areaPoints"
+                  fill="none" stroke="@Color" stroke-width="@StrokeWidth" stroke-linecap="round" stroke-linejoin="round" />
+
+        @* End dot *@
+        var lastPoint = pointsList.Last().Split(',');
+        <circle cx="@lastPoint[0]" cy="@lastPoint[1]" r="3" fill="@Color" />
+    }
+    else if (Values?.Count == 1)
+    {
+        <circle cx="@(Width/2)" cy="@(Height/2)" r="3" fill="@Color" />
+    }
+</svg>
+
+@code {
+    [Parameter] public List<double>? Values { get; set; }
+    [Parameter] public int Width { get; set; } = 120;
+    [Parameter] public int Height { get; set; } = 32;
+    [Parameter] public string Color { get; set; } = "var(--accent-cyan)";
+    [Parameter] public string FillRgb { get; set; } = "0,212,255";
+    [Parameter] public double StrokeWidth { get; set; } = 1.5;
+    [Parameter] public double? MinValue { get; set; }
+    [Parameter] public double? MaxValue { get; set; }
+}

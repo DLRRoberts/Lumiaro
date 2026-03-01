@@ -1,0 +1,21 @@
+<div class="filter-bar">
+    @foreach (var option in Options)
+    {
+        <button class="filter-pill @(option == ActiveFilter ? "active" : "")"
+                @onclick="() => SetFilter(option)">
+            @option
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public List<string> Options { get; set; } = new();
+    [Parameter] public string ActiveFilter { get; set; } = "";
+    [Parameter] public EventCallback<string> ActiveFilterChanged { get; set; }
+
+    private async Task SetFilter(string filter)
+    {
+        ActiveFilter = filter;
+        await ActiveFilterChanged.InvokeAsync(filter);
+    }
+}

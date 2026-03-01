@@ -1,0 +1,208 @@
+@page "/fixtures"
+@inject FixtureService FixtureService
+@inject NavigationManager Nav
+
+<PageTitle>@L["fixtures.pageTitle"]</PageTitle>
+
+@* ── Page Header ── *@
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;flex-wrap:wrap;gap:16px;">
+    <div>
+        <h1 style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;margin-bottom:4px;">
+            @L["fixtures.title"]
+        </h1>
+        <p style="font-size:.85rem;color:var(--text-muted);font-weight:300;">
+            @L["fixtures.subtitle"]
+        </p>
+    </div>
+    <div style="display:flex;gap:12px;">
+        <MiniStat Value="@Stats.totalFixtures.ToString()" Label="Total" Color="var(--accent-cyan)" />
+        <MiniStat Value="@Stats.fullyAssigned.ToString()" Label="Assigned" Color="var(--accent-lime)" />
+        <MiniStat Value="@Stats.partiallyAssigned.ToString()" Label="Partial" Color="var(--accent-orange)" />
+        <MiniStat Value="@Stats.unassigned.ToString()" Label="Unassigned" Color="var(--accent-red)" />
+    </div>
+</div>
+
+@* ── Date Navigator ── *@
+<div class="date-navigator">
+    @foreach (var (date, count, assigned) in DateSummary)
+    {
+        var isActive = date.Date == SelectedDate.Date;
+        var allDone = assigned == count;
+
+        <button class="date-pill @(isActive ? "active" : "") @(allDone ? "complete" : "")"
+                @onclick="() => SelectDate(date)">
+            <span class="date-pill-day">@date.ToString("ddd")</span>
+            <span class="date-pill-date">@date.ToString("dd MMM")</span>
+            <span class="date-pill-count">
+                @if (allDone)
+                {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="11" height="11"><polyline points="20 6 9 17 4 12"/></svg>
+                }
+                @count fixtures
+            </span>
+        </button>
+    }
+</div>
+
+@* ── Division Filter + Day Stats ── *@
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:14px;">
+    <div class="filter-bar">
+        <button class="filter-pill @(SelectedDivisionId == 0 ? "active" : "")"
+                @onclick="() => FilterDivision(0)">All Divisions</button>
+        @foreach (var div in Divisions)
+        {
+            <button class="filter-pill @(SelectedDivisionId == div.Id ? "active" : "")"
+                    @onclick="() => FilterDivision(div.Id)">@div.Name</button>
+        }
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+        @{
+            var dayStats = (totalFixtures: FilteredFixtures.Count, fullyAssigned: FilteredFixtures.Count(f => f.IsFullyAssigned));
+        }
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text-dim);letter-spacing:1px;">
+            @SelectedDate.ToString("dddd dd MMMM yyyy").ToUpperInvariant()
+        </span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:3px 10px;border-radius:100px;background:rgba(118,255,3,0.08);color:var(--accent-lime);">
+            @dayStats.fullyAssigned/@dayStats.totalFixtures COMPLETE
+        </span>
+    </div>
+</div>
+
+@* ── Fixture Cards ── *@
+@if (!FilteredFixtures.Any())
+{
+    <div class="card" style="padding:48px;text-align:center;">
+        <div style="color:var(--text-dim);font-size:.95rem;">No fixtures found for this date and division.</div>
+    </div>
+}
+else
+{
+    var groupedByDivision = FilteredFixtures.GroupBy(f => f.DivisionName);
+    foreach (var group in groupedByDivision)
+    {
+        <div style="margin-bottom:28px;">
+            <div class="section-title" style="margin-bottom:12px;">
+                <TierBadge Tier="group.First().DivisionTier"/>
+                <span style="margin-left:4px;">@group.Key</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text-dim);margin-left:8px;">
+                    MATCHDAY @group.First().Matchday
+                </span>
+                <span class="accent-line"></span>
+            </div>
+
+            <div class="fixture-grid">
+                @foreach (var fixture in group)
+                {
+                    <div class="fixture-card @(fixture.IsFullyAssigned ? "fully-assigned" : (fixture.AssignedCount > 0 ? "partial" : ""))">
+                        <div class="fixture-card-top">
+                            <div class="fixture-card-kickoff">@fixture.KickOffDisplay</div>
+                            <div class="fixture-card-assignment-badge">
+                                @if (fixture.IsFullyAssigned)
+                                {
+                                    <span class="badge badge-active" style="font-size:.55rem;">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><polyline points="20 6 9 17 4 12"/></svg>
+                                        Complete
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--accent-orange);">
+                                        @fixture.AssignmentSummary
+                                    </span>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="fixture-card-teams">
+                            <span class="fixture-card-home">@fixture.HomeTeam</span>
+                            <span class="fixture-card-vs">vs</span>
+                            <span class="fixture-card-away">@fixture.AwayTeam</span>
+                        </div>
+
+                        @if (fixture.Venue != null)
+                        {
+                            <div class="fixture-card-venue">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                                </svg>
+                                @fixture.Venue
+                            </div>
+                        }
+
+                        <div class="fixture-card-officials">
+                            @foreach (var role in new[] { OfficialRole.Referee, OfficialRole.AssistantReferee1, OfficialRole.AssistantReferee2, OfficialRole.MatchOfficial })
+                            {
+                                var assignment = fixture.GetSlot(role);
+                                <div class="fixture-card-official @(assignment != null ? "filled" : "empty")">
+                                    <span class="fixture-card-official-role">@role.ShortLabel()</span>
+                                    @if (assignment != null)
+                                    {
+                                        <span class="fixture-card-official-name">@assignment.RefereeName</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="fixture-card-official-name empty">Unassigned</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+
+                        <button class="btn btn-secondary btn-sm fixture-card-action"
+                                @onclick="() => ViewFixture(fixture.Id)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/>
+                                <line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>
+                            </svg>
+                            @(fixture.IsFullyAssigned ? "View Officials" : "Assign Officials")
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<Division> Divisions = new();
+    private List<Fixture> FilteredFixtures = new();
+    private List<(DateTime Date, int FixtureCount, int AssignedCount)> DateSummary = new();
+    private (int totalFixtures, int fullyAssigned, int partiallyAssigned, int unassigned) Stats;
+
+    private DateTime SelectedDate;
+    private int SelectedDivisionId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Divisions = await FixtureService.GetDivisionsAsync();
+        DateSummary = await FixtureService.GetDateSummaryAsync();
+        Stats = await FixtureService.GetAssignmentStatsAsync();
+
+        // Default to the first fixture date
+        SelectedDate = DateSummary.FirstOrDefault().Date;
+        if (SelectedDate == default) SelectedDate = DateTime.Today;
+
+        await ApplyFiltersAsync();
+    }
+
+    private void ViewFixture(int id) => Nav.NavigateTo($"/fixtures/{id}");
+
+    private async Task SelectDate(DateTime date)
+    {
+        SelectedDate = date;
+        await ApplyFiltersAsync();
+    }
+
+    private async Task FilterDivision(int divisionId)
+    {
+        SelectedDivisionId = divisionId;
+        await ApplyFiltersAsync();
+    }
+
+    private async Task ApplyFiltersAsync()
+    {
+        FilteredFixtures = await FixtureService.GetFixturesAsync(
+            SelectedDate,
+            SelectedDivisionId > 0 ? SelectedDivisionId : null
+        );
+    }
+}

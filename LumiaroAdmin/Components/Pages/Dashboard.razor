@@ -1,0 +1,149 @@
+@page "/"
+@inject RefereeService RefereeService
+
+<PageTitle>Lumiaro — Dashboard</PageTitle>
+
+<div style="margin-bottom:28px;">
+    <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;margin-bottom:4px;">
+        Referee Administration
+    </h1>
+    <p style="font-size:.88rem;color:var(--text-muted);font-weight:300;">
+        Overview of the referee pool, recent activity, and system status.
+    </p>
+</div>
+
+@* ── Stat Cards ── *@
+<div class="widget-grid">
+    <StatCard Label="Active Referees" Value="@Stats.ActiveReferees.ToString()"
+              Change="@($"▲ +{Stats.SeasonChange} this season")" Accent="cyan" />
+    <StatCard Label="Matches This Season" Value="@Stats.MatchesThisSeason.ToString("N0")"
+              Change="@($"▲ +{Stats.MatchesThisWeek} this week")" Accent="lime" />
+    <StatCard Label="Avg. Assessment Score" Value="@Stats.AvgAssessmentScore.ToString("F1")"
+              Change="@($"▲ +{Stats.ScoreChangeVsLastSeason:F1} vs last season")" Accent="orange" />
+    <StatCard Label="Pending Appointments" Value="@Stats.PendingAppointments.ToString()"
+              Change="@($"Next matchday: {Stats.NextMatchday}")" Accent="blue" />
+</div>
+
+@* ── Recent Referees + Activity Feed ── *@
+<div class="content-grid-2">
+    <div class="table-wrap">
+        <div class="table-header">
+            <div class="table-header-left">
+                <div class="table-title">Recently Updated Referees</div>
+            </div>
+            <a href="referees" class="btn btn-ghost btn-sm">View All →</a>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Referee</th><th>Tier</th><th>Status</th><th>Matches</th><th>Last Active</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in RecentReferees)
+                {
+                    <tr style="cursor:pointer;" @onclick="() => GoToProfile(r.Id)">
+                        <td>
+                            <div class="table-name-cell">
+                                <AvatarPlaceholder Initials="@r.Initials" />
+                                <div>
+                                    <div class="table-name">@r.FullName</div>
+                                    <div class="table-name-sub">@r.RefCode · @r.Nationality</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><TierBadge Tier="r.Tier" /></td>
+                        <td><StatusBadge Status="r.Status" /></td>
+                        <td style="font-family:'JetBrains Mono',monospace;font-size:.82rem;">@r.TotalMatches</td>
+                        <td style="font-size:.8rem;color:var(--text-muted);">@r.LastActiveDate?.ToString("dd MMM yyyy")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card" style="padding:20px 24px;">
+        <div class="section-title">
+            Recent Activity
+            <span class="accent-line"></span>
+        </div>
+        @foreach (var a in Activities)
+        {
+            <div class="activity-item">
+                <div class="activity-icon @a.IconType">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="4"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="activity-text">
+                        @if (!string.IsNullOrEmpty(a.HighlightName))
+                        {
+                            <strong>@a.HighlightName</strong>@(" ")
+                        }
+                        @a.Message
+                        @if (!string.IsNullOrEmpty(a.HighlightValue))
+                        {
+                            <strong style="color:var(@a.HighlightColor);">@(" ")@a.HighlightValue</strong>
+                        }
+                    </div>
+                    <div class="activity-time">@a.TimeAgo</div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@* ── Upcoming Appointments ── *@
+<div class="table-wrap">
+    <div class="table-header">
+        <div class="table-header-left">
+            <div class="table-title">Upcoming Appointments</div>
+            <span class="table-count">Next 7 days</span>
+        </div>
+    </div>
+    <table>
+        <thead>
+            <tr><th>Date</th><th>Match</th><th>Competition</th><th>Referee</th><th>Assistants</th><th>4th Official</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var m in Appointments)
+            {
+                <tr>
+                    <td style="font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--text-muted);white-space:nowrap;">
+                        @m.Date.ToString("ddd dd MMM")
+                    </td>
+                    <td style="font-weight:500;">@m.MatchTitle</td>
+                    <td><TierBadge Tier="m.CompetitionTier" /></td>
+                    <td>
+                        <div class="table-name-cell">
+                            <AvatarPlaceholder Initials="@m.RefereeInitials" Size="28" FontSize=".6rem" BorderWidth="1.5px" />
+                            <span style="font-size:.85rem;">@m.RefereeName</span>
+                        </div>
+                    </td>
+                    <td style="font-size:.82rem;color:var(--text-muted);">@m.Assistants</td>
+                    <td style="font-size:.82rem;color:var(--text-muted);">@m.FourthOfficial</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private DashboardStats Stats = new();
+    private List<Referee> RecentReferees = new();
+    private List<ActivityItem> Activities = new();
+    private List<Match> Appointments = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Stats = await RefereeService.GetDashboardStatsAsync();
+        RecentReferees = await RefereeService.GetRecentlyUpdatedAsync(5);
+        Activities = await RefereeService.GetRecentActivityAsync();
+        Appointments = await RefereeService.GetUpcomingAppointmentsAsync();
+    }
+
+    private void GoToProfile(int id) => Nav.NavigateTo($"/referees/{id}");
+}

@@ -1,0 +1,19 @@
+@page "/Error"
+@using System.Diagnostics
+
+<PageTitle>Error — Lumiaro</PageTitle>
+
+<div style="text-align:center;padding:80px 32px;">
+    <h1 style="font-family:'Playfair Display',serif;font-size:1.8rem;margin-bottom:12px;">Something went wrong</h1>
+    <p style="color:var(--text-muted);max-width:440px;margin:0 auto 24px;line-height:1.6;">
+        An unexpected error occurred while processing your request. Please try refreshing the page.
+    </p>
+    <a href="/" class="btn btn-primary">Back to Dashboard</a>
+</div>
+
+@code {
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    protected override void OnInitialized() =>
+        HttpContext?.Response.Headers.TryAdd("Cache-Control", "no-cache, no-store");
+}

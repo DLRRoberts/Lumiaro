@@ -1,0 +1,33 @@
+@* Horizontal bar showing home vs away ratio *@
+
+<div class="bias-bar-container">
+    <div class="bias-bar-labels">
+        <span class="bias-bar-label-left">Home @LeftValue</span>
+        <span class="bias-bar-label-center">@Label</span>
+        <span class="bias-bar-label-right">Away @RightValue</span>
+    </div>
+    <div class="bias-bar-track">
+        <div class="bias-bar-left" style="width:@(Ratio)%;background:@LeftColor;"></div>
+        <div class="bias-bar-right" style="width:@(100 - Ratio)%;background:@RightColor;"></div>
+        <div class="bias-bar-center-mark" style="left:50%;"></div>
+    </div>
+    @if (!string.IsNullOrEmpty(Assessment))
+    {
+        <div class="bias-bar-assessment @SeverityClass">@Assessment</div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public int LeftValue { get; set; }
+    [Parameter] public int RightValue { get; set; }
+    [Parameter] public string? Assessment { get; set; }
+    [Parameter] public string Severity { get; set; } = "good";
+
+    private string LeftColor => "var(--accent-cyan)";
+    private string RightColor => "var(--accent-orange)";
+    private string SeverityClass => $"bias-{Severity}";
+
+    private double Ratio => (LeftValue + RightValue) > 0
+        ? Math.Round((double)LeftValue / (LeftValue + RightValue) * 100, 1) : 50;
+}

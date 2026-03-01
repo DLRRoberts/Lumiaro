@@ -1,0 +1,308 @@
+@page "/fixtures/{Id:int}"
+@inject FixtureService FixtureService
+@inject NavigationManager Nav
+
+@if (Fixture is null)
+{
+    <div style="text-align:center;padding:80px 32px;">
+        <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;">@L["fixtures.notFound"]</h1>
+        <p style="color:var(--text-muted);margin-top:8px;">The requested fixture could not be located.</p>
+        <a href="/fixtures" class="btn btn-primary" style="margin-top:20px;">← @L["fixtures.backToFixtures"]</a>
+    </div>
+}
+else
+{
+    <PageTitle>Lumiaro — @Fixture.MatchTitle</PageTitle>
+
+    @* ── Breadcrumb back link ── *@
+    <a href="/fixtures" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+        Fixtures &amp; Assignments
+    </a>
+
+    @* ── Fixture Hero ── *@
+    <div class="fixture-hero">
+        <div class="fixture-hero-division">
+            <TierBadge Tier="Fixture.DivisionTier" />
+            <span class="fixture-hero-division-name">@Fixture.DivisionName</span>
+            <span class="fixture-hero-matchday">Matchday @Fixture.Matchday</span>
+        </div>
+
+        <div class="fixture-hero-teams">
+            <div class="fixture-hero-team home">
+                <div class="fixture-hero-team-crest">@Fixture.HomeTeam[..2].ToUpperInvariant()</div>
+                <div class="fixture-hero-team-name">@Fixture.HomeTeam</div>
+            </div>
+            <div class="fixture-hero-center">
+                <div class="fixture-hero-kickoff">@Fixture.KickOffDisplay</div>
+                <div class="fixture-hero-vs">VS</div>
+                <div class="fixture-hero-date">@Fixture.DateDisplay</div>
+            </div>
+            <div class="fixture-hero-team away">
+                <div class="fixture-hero-team-crest">@Fixture.AwayTeam[..2].ToUpperInvariant()</div>
+                <div class="fixture-hero-team-name">@Fixture.AwayTeam</div>
+            </div>
+        </div>
+
+        @if (Fixture.Venue != null)
+        {
+            <div class="fixture-hero-venue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                </svg>
+                @Fixture.Venue
+            </div>
+        }
+
+        <div class="fixture-hero-progress">
+            <div class="fixture-hero-progress-bar">
+                <div class="fixture-hero-progress-fill" style="width:@(Fixture.AssignedCount * 25)%;"></div>
+            </div>
+            <span class="fixture-hero-progress-label">@Fixture.AssignmentSummary</span>
+        </div>
+    </div>
+
+    @* ── Officials Assignment Grid ── *@
+    <div class="section-title" style="margin-top:28px;">
+        @L["fixtures.officialAssignments"]
+        <span class="accent-line"></span>
+    </div>
+
+    <div class="officials-grid">
+        @foreach (var role in AllRoles)
+        {
+            <OfficialSlot Role="role"
+                          Assignment="Fixture.GetSlot(role)"
+                          IsHighlighted="SelectorRole == role && SelectorOpen"
+                          OnAssignClicked="() => OpenSelector(role)"
+                          OnRemoveClicked="() => RemoveOfficial(role)" />
+        }
+    </div>
+
+    @* ── Success toast ── *@
+    @if (ShowSuccessToast)
+    {
+        <div class="assignment-toast success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>
+            @ToastMessage
+        </div>
+    }
+
+    @* ── Conflict toast ── *@
+    @if (ShowConflictToast)
+    {
+        <div class="assignment-toast conflict">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            @ConflictMessage
+        </div>
+    }
+
+    @* ── Other fixtures this day (context panel) ── *@
+    @if (SameDayFixtures.Any())
+    {
+        <div class="section-title" style="margin-top:36px;">
+            Other Fixtures — @Fixture.DateDisplay
+            <span class="accent-line"></span>
+        </div>
+        <p style="font-size:.8rem;color:var(--text-dim);margin-bottom:16px;">
+            Officials assigned to these matches are blocked from being assigned to this fixture.
+        </p>
+
+        <div class="sameday-grid">
+            @foreach (var other in SameDayFixtures)
+            {
+                <div class="sameday-card">
+                    <div class="sameday-card-header">
+                        <div>
+                            <span class="sameday-card-teams">@other.MatchTitle</span>
+                            <span class="sameday-card-meta">
+                                <TierBadge Tier="other.DivisionTier" />
+                                @other.KickOffDisplay
+                            </span>
+                        </div>
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:@(other.IsFullyAssigned ? "var(--accent-lime)" : "var(--accent-orange)");">
+                            @other.AssignmentSummary
+                        </span>
+                    </div>
+                    <div class="sameday-card-slots">
+                        @foreach (var role in AllRoles)
+                        {
+                            var slot = other.GetSlot(role);
+                            <div class="sameday-slot @(slot != null ? "filled" : "")">
+                                <span class="sameday-slot-role">@role.ShortLabel()</span>
+                                <span class="sameday-slot-name">@(slot?.RefereeName ?? "—")</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Assignment History Log ── *@
+    @if (AssignmentLog.Any())
+    {
+        <div class="section-title" style="margin-top:36px;">
+            @L["fixtures.assignmentLog"]
+            <span class="accent-line"></span>
+        </div>
+        <div class="assignment-log">
+            @foreach (var entry in AssignmentLog)
+            {
+                <div class="assignment-log-entry @entry.Type">
+                    <div class="assignment-log-icon">
+                        @if (entry.Type == "assign")
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="20 6 9 17 4 12"/></svg>
+                        }
+                        else
+                        {
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        }
+                    </div>
+                    <span class="assignment-log-text">@entry.Message</span>
+                    <span class="assignment-log-time">@entry.Time</span>
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Selector Modal ── *@
+    <OfficialSelector IsOpen="SelectorOpen"
+                      FixtureId="Fixture.Id"
+                      Role="SelectorRole"
+                      FixtureTitle="@Fixture.MatchTitle"
+                      FixtureDate="Fixture.Date"
+                      OnSelected="HandleOfficialSelected"
+                      OnCancel="CloseSelector" />
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Fixture? Fixture;
+    private List<Fixture> SameDayFixtures = new();
+    private List<LogEntry> AssignmentLog = new();
+
+    // Selector state
+    private bool SelectorOpen;
+    private OfficialRole SelectorRole;
+
+    // Toast state
+    private bool ShowSuccessToast;
+    private bool ShowConflictToast;
+    private string ToastMessage = "";
+    private string ConflictMessage = "";
+    private System.Threading.Timer? _toastTimer;
+
+    private static readonly OfficialRole[] AllRoles =
+    {
+        OfficialRole.Referee,
+        OfficialRole.AssistantReferee1,
+        OfficialRole.AssistantReferee2,
+        OfficialRole.MatchOfficial
+    };
+
+    protected override async Task OnParametersSetAsync() => await LoadFixtureAsync();
+
+    private async Task LoadFixtureAsync()
+    {
+        Fixture = await FixtureService.GetFixtureByIdAsync(Id);
+        if (Fixture != null)
+        {
+            SameDayFixtures = (await FixtureService.GetFixturesAsync(Fixture.Date))
+                .Where(f => f.Id != Fixture.Id)
+                .ToList();
+        }
+    }
+
+    // ── Selector ──
+
+    private void OpenSelector(OfficialRole role)
+    {
+        SelectorRole = role;
+        SelectorOpen = true;
+    }
+
+    private void CloseSelector() => SelectorOpen = false;
+
+    private async Task HandleOfficialSelected(int refereeId)
+    {
+        if (Fixture == null) return;
+
+        var conflict = await FixtureService.AssignOfficialAsync(Fixture.Id, refereeId, SelectorRole);
+
+        if (conflict != null)
+        {
+            ShowConflictToast = true;
+            ConflictMessage = conflict.Message;
+            DismissToastAfterDelay();
+        }
+        else
+        {
+            // Find the name for the log
+            var assignment = Fixture.GetSlot(SelectorRole);
+            var name = assignment?.RefereeName ?? "Unknown";
+
+            ShowSuccessToast = true;
+            ToastMessage = $"{name} assigned as {SelectorRole.Label()}";
+            AddLogEntry("assign", ToastMessage);
+            DismissToastAfterDelay();
+        }
+
+        SelectorOpen = false;
+        await LoadFixtureAsync(); // Refresh same-day fixtures panel
+        StateHasChanged();
+    }
+
+    private async Task RemoveOfficial(OfficialRole role)
+    {
+        if (Fixture == null) return;
+
+        var assignment = Fixture.GetSlot(role);
+        if (assignment == null) return;
+
+        var name = assignment.RefereeName;
+        await FixtureService.UnassignOfficialAsync(Fixture.Id, role);
+
+        AddLogEntry("remove", $"{name} removed from {role.Label()}");
+        await LoadFixtureAsync();
+        StateHasChanged();
+    }
+
+    // ── Toast ──
+
+    private void DismissToastAfterDelay()
+    {
+        _toastTimer?.Dispose();
+        _toastTimer = new System.Threading.Timer(_ =>
+        {
+            ShowSuccessToast = false;
+            ShowConflictToast = false;
+            InvokeAsync(StateHasChanged);
+        }, null, 4000, System.Threading.Timeout.Infinite);
+    }
+
+    // ── Log ──
+
+    private void AddLogEntry(string type, string message)
+    {
+        AssignmentLog.Insert(0, new LogEntry
+        {
+            Type = type,
+            Message = message,
+            Time = DateTime.Now.ToString("HH:mm:ss")
+        });
+        if (AssignmentLog.Count > 20) AssignmentLog.RemoveAt(AssignmentLog.Count - 1);
+    }
+
+    private class LogEntry
+    {
+        public string Type { get; set; } = "";
+        public string Message { get; set; } = "";
+        public string Time { get; set; } = "";
+    }
+}

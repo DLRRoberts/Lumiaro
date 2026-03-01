@@ -1,0 +1,131 @@
+@inject FixtureService FixtureService
+
+<div class="modal-overlay @(IsOpen ? "open" : "")">
+    <div class="modal" style="max-width:680px;">
+        <div class="modal-header">
+            <div>
+                <div class="modal-title">Assign @Role.Label()</div>
+                <div style="font-size:.78rem;color:var(--text-muted);margin-top:2px;">
+                    @FixtureTitle — @FixtureDate.ToString("ddd dd MMM yyyy")
+                </div>
+            </div>
+            <button class="modal-close" @onclick="Cancel">✕</button>
+        </div>
+
+        <div style="padding:16px 28px 0;">
+            <div class="search-input-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input type="text" class="search-input" placeholder="Search by name, ID, or location..."
+                       @bind="SearchQuery" @bind:event="oninput" @bind:after="RefreshList" />
+            </div>
+        </div>
+
+        <div class="modal-body" style="padding-top:12px;max-height:460px;overflow-y:auto;">
+            @if (!Candidates.Any())
+            {
+                <div style="text-align:center;padding:32px;color:var(--text-dim);font-size:.88rem;">
+                    No referees found matching your search.
+                </div>
+            }
+            else
+            {
+                @foreach (var (referee, conflict, alreadyInFixture) in Candidates)
+                {
+                    var isUnavailable = conflict != null || alreadyInFixture;
+
+                    <div class="selector-row @(isUnavailable ? "unavailable" : "")"
+                         @onclick="() => SelectReferee(referee, conflict, alreadyInFixture)">
+                        <AvatarPlaceholder Initials="@referee.Initials" Size="38" FontSize=".8rem" />
+                        <div class="selector-row-info">
+                            <div class="selector-row-name">
+                                @referee.FullName
+                                @if (alreadyInFixture)
+                                {
+                                    <span class="selector-tag in-fixture">IN THIS FIXTURE</span>
+                                }
+                            </div>
+                            <div class="selector-row-meta">
+                                <span>@referee.RefCode</span>
+                                <span>@referee.Location</span>
+                                <TierBadge Tier="referee.Tier" />
+                            </div>
+                            @if (conflict != null)
+                            {
+                                <div class="selector-conflict">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                                    </svg>
+                                    @conflict.Message
+                                </div>
+                            }
+                        </div>
+                        <div class="selector-row-stats">
+                            <div style="text-align:center;">
+                                <div style="font-family:'JetBrains Mono',monospace;font-size:.92rem;font-weight:500;">@referee.TotalMatches</div>
+                                <div style="font-size:.52rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-family:'JetBrains Mono',monospace;">Matches</div>
+                            </div>
+                            <div style="text-align:center;">
+                                <div style="font-family:'JetBrains Mono',monospace;font-size:.92rem;font-weight:500;color:@UiHelpers.ScoreColor(referee.AverageScore);">@referee.AverageScore.ToString("F1")</div>
+                                <div style="font-size:.52rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-family:'JetBrains Mono',monospace;">Avg</div>
+                            </div>
+                        </div>
+                        @if (!isUnavailable)
+                        {
+                            <div class="selector-row-action">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                    <polyline points="9 18 15 12 9 6"/>
+                                </svg>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public int FixtureId { get; set; }
+    [Parameter] public OfficialRole Role { get; set; }
+    [Parameter] public string FixtureTitle { get; set; } = "";
+    [Parameter] public DateTime FixtureDate { get; set; }
+    [Parameter] public EventCallback<int> OnSelected { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string SearchQuery = "";
+    private List<(Referee Referee, AssignmentConflict? Conflict, bool AlreadyInFixture)> Candidates = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsOpen)
+        {
+            await RefreshList();
+        }
+    }
+
+    private async Task RefreshList()
+    {
+        Candidates = await FixtureService.GetAvailableRefereesAsync(FixtureId, FixtureDate, SearchQuery);
+    }
+
+    private async Task SelectReferee(Referee referee, AssignmentConflict? conflict, bool alreadyInFixture)
+    {
+        // Block selection if conflict or already assigned to this fixture
+        if (conflict != null || alreadyInFixture) return;
+        await OnSelected.InvokeAsync(referee.Id);
+    }
+
+    private async Task Cancel()
+    {
+        SearchQuery = "";
+        await OnCancel.InvokeAsync();
+    }
+}

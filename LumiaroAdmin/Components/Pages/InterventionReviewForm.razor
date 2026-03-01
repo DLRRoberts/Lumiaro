@@ -1,0 +1,247 @@
+﻿@page "/reports/{ReportId:int}/review"
+@inject MatchReportService ReportService
+@inject InterventionReviewService ReviewService
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<PageTitle>@L["reviews.form.pageTitle"]</PageTitle>
+
+@if (Report == null)
+{
+    <div class="empty-state-inline" style="margin-top:60px;">
+        <p>Report not found.</p>
+        <a href="/reports" class="btn btn-ghost" style="margin-top:12px;">← Back to Reports</a>
+    </div>
+}
+else
+{
+    @* ── Header ── *@
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:16px;">
+        <div>
+            <h1 style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;margin-bottom:4px;">
+                @L["reviews.form.pageTitle"]
+            </h1>
+            <p style="font-size:.85rem;color:var(--text-muted);font-weight:300;">
+                @Report.MatchTitle · @Report.DateDisplay · @Report.RefereeName
+            </p>
+        </div>
+        <div style="display:flex;gap:10px;">
+            <a href="/reports/@ReportId/reviews" class="btn btn-ghost btn-sm">View Consensus →</a>
+            <a href="/reports/@ReportId" class="btn btn-ghost btn-sm">← Report</a>
+        </div>
+    </div>
+
+    @* ── Reviewer Identity ── *@
+    <div class="card" style="padding:20px 24px;margin-bottom:12px;">
+        <div class="section-title">
+            Your Details
+            <span class="accent-line"></span>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-top:8px;">
+            <div class="form-group" style="flex:1;min-width:200px;">
+                <label class="form-label">@L["reviews.form.reviewerName"]</label>
+                <input type="text" class="form-input" placeholder="Enter your name..."
+                       @bind="Form.ReviewerName" @bind:event="oninput" />
+            </div>
+            <div class="form-group" style="min-width:160px;">
+                <label class="form-label">@L["reviews.form.reviewerRole"]</label>
+                <select class="form-select" @bind="Form.ReviewerRole">
+                    <option value="Observer">Observer</option>
+                    <option value="Referee">Referee</option>
+                    <option value="Senior Referee">Senior Referee</option>
+                    <option value="Referee Manager">Referee Manager</option>
+                    <option value="Coach">Referee Coach</option>
+                    <option value="Assessor">Assessor</option>
+                </select>
+            </div>
+            @if (AlreadyReviewed)
+            {
+                <div style="padding:6px 14px;border-radius:var(--radius-sm);background:rgba(255,109,0,0.08);border:1px solid rgba(255,109,0,0.2);font-size:.78rem;color:var(--accent-orange);">
+                    You have an existing review — submitting will replace it.
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ── Scoring Guide ── *@
+    <div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap;">
+        <div class="review-guide-pill"><span class="review-guide-dot" style="background:var(--accent-cyan);"></span> Accuracy — Was the decision correct?</div>
+        <div class="review-guide-pill"><span class="review-guide-dot" style="background:var(--accent-lime);"></span> Consistency — In line with earlier decisions?</div>
+        <div class="review-guide-pill"><span class="review-guide-dot" style="background:var(--accent-orange);"></span> Communication — Clearly signalled/explained?</div>
+        <div class="review-guide-pill"><span class="review-guide-dot" style="background:var(--accent-magenta);"></span> Match Handling — Controlled the situation well?</div>
+    </div>
+
+    @* ── Event Cards ── *@
+    @foreach (var entry in Form.Entries)
+    {
+        <div class="review-event-card @(entry.HasScores ? "scored" : "")">
+            <div class="review-event-header" @onclick="() => entry.IsExpanded = !entry.IsExpanded">
+                <div class="review-event-meta">
+                    <span class="review-event-minute">@entry.MinuteDisplay</span>
+                    <EventBadge Type="entry.EventType" />
+                    <ImpactBadge Impact="entry.Impact" />
+                </div>
+                <div class="review-event-desc">@entry.Description</div>
+                <div class="review-event-toggle">
+                    @if (entry.HasScores)
+                    {
+                        <span class="review-event-score-preview" style="color:@ScoreColor(entry.OverallScore);">
+                            @entry.OverallScore.ToString("F0")
+                        </span>
+                    }
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"
+                         class="@(entry.IsExpanded ? "chevron-open" : "")">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(entry.OfficialResponse))
+            {
+                <div class="review-event-response">
+                    <strong>Official response:</strong> @entry.OfficialResponse
+                </div>
+            }
+
+            @if (entry.IsExpanded)
+            {
+                <div class="review-score-panel">
+                    <div class="review-score-row">
+                        <label class="review-score-label" style="color:var(--accent-cyan);">Accuracy</label>
+                        <input type="range" min="0" max="100" class="review-slider accent-cyan"
+                               @bind="entry.AccuracyScore" @bind:event="oninput" />
+                        <span class="review-score-value" style="color:@ScoreColor(entry.AccuracyScore);">@entry.AccuracyScore</span>
+                    </div>
+                    <div class="review-score-row">
+                        <label class="review-score-label" style="color:var(--accent-lime);">Consistency</label>
+                        <input type="range" min="0" max="100" class="review-slider accent-lime"
+                               @bind="entry.ConsistencyScore" @bind:event="oninput" />
+                        <span class="review-score-value" style="color:@ScoreColor(entry.ConsistencyScore);">@entry.ConsistencyScore</span>
+                    </div>
+                    <div class="review-score-row">
+                        <label class="review-score-label" style="color:var(--accent-orange);">Communication</label>
+                        <input type="range" min="0" max="100" class="review-slider accent-orange"
+                               @bind="entry.CommunicationScore" @bind:event="oninput" />
+                        <span class="review-score-value" style="color:@ScoreColor(entry.CommunicationScore);">@entry.CommunicationScore</span>
+                    </div>
+                    <div class="review-score-row">
+                        <label class="review-score-label" style="color:var(--accent-magenta);">Match Handling</label>
+                        <input type="range" min="0" max="100" class="review-slider accent-magenta"
+                               @bind="entry.MatchHandlingScore" @bind:event="oninput" />
+                        <span class="review-score-value" style="color:@ScoreColor(entry.MatchHandlingScore);">@entry.MatchHandlingScore</span>
+                    </div>
+                    <div class="form-group" style="margin-top:10px;">
+                        <label class="form-label" style="font-size:.75rem;">@L["reviews.form.comment"]</label>
+                        <textarea class="form-textarea" rows="2" placeholder="Notes on this intervention..."
+                                  @bind="entry.Comment"></textarea>
+                    </div>
+                    @if (entry.HasScores)
+                    {
+                        <div style="text-align:right;margin-top:6px;font-size:.78rem;color:var(--text-dim);">
+                            Event average: <span style="color:@ScoreColor(entry.OverallScore);font-weight:600;">@entry.OverallScore.ToString("F0")</span>/100
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Submit ── *@
+    <div class="review-submit-bar">
+        <div style="font-size:.82rem;color:var(--text-muted);">
+            @ScoredCount / @Form.Entries.Count events scored
+            @if (ScoredCount > 0)
+            {
+                <span> · Average: <span style="color:@ScoreColor(AverageOverall);font-weight:600;">@AverageOverall.ToString("F0")</span>/100</span>
+            }
+        </div>
+        <div style="display:flex;gap:10px;">
+            <button class="btn btn-ghost" @onclick="ExpandAll">Expand All</button>
+            <button class="btn btn-primary" disabled="@(!Form.IsValid)" @onclick="Submit">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                @L["reviews.form.submitReview"]
+            </button>
+        </div>
+    </div>
+
+    @if (ShowSuccess)
+    {
+        <div class="review-success-toast">
+            Review submitted successfully. <a href="/reports/@ReportId/reviews">View consensus →</a>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int ReportId { get; set; }
+
+    private MatchOfficialReport? Report;
+    private InterventionReviewFormModel Form = new();
+    private bool ShowSuccess;
+    private bool AlreadyReviewed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Report = await ReportService.GetByIdAsync(ReportId);
+        if (Report == null) return;
+
+        Form = new InterventionReviewFormModel
+        {
+            ReportId = ReportId,
+            Entries = Report.Events
+                .Where(e => e.OfficialInvolved)
+                .OrderBy(e => e.Minute).ThenBy(e => e.AddedTime ?? 0)
+                .Select(e => new EventReviewEntry
+                {
+                    EventId = e.Id,
+                    Minute = e.Minute,
+                    AddedTime = e.AddedTime,
+                    EventType = e.EventType.ToData(),
+                    Description = e.Description,
+                    Impact = e.Impact.ToData(),
+                    OfficialResponse = e.OfficialResponse,
+                    IsExpanded = true,
+                }).ToList(),
+        };
+    }
+
+    private async Task CheckExisting()
+    {
+        if (!string.IsNullOrWhiteSpace(Form.ReviewerName))
+            AlreadyReviewed = await ReviewService.HasReviewedAsync(ReportId, Form.ReviewerName);
+    }
+
+    private async Task Submit()
+    {
+        if (!Form.IsValid) return;
+
+        var scores = Form.Entries
+            .Where(e => e.HasScores)
+            .Select(e => (e.EventId, e.AccuracyScore, e.ConsistencyScore,
+                e.CommunicationScore, e.MatchHandlingScore, e.Comment))
+            .ToList();
+
+        await ReviewService.SubmitReviewsAsync(ReportId, Form.ReviewerName, Form.ReviewerRole, scores);
+        ShowSuccess = true;
+    }
+
+    private void ExpandAll()
+    {
+        foreach (var e in Form.Entries) e.IsExpanded = true;
+    }
+
+    private int ScoredCount => Form.Entries.Count(e => e.HasScores);
+
+    private double AverageOverall => ScoredCount > 0
+        ? Math.Round(Form.Entries.Where(e => e.HasScores).Average(e => e.OverallScore), 0) : 0;
+
+    private static string ScoreColor(double score) => score switch
+    {
+        >= 80 => "var(--accent-lime)",
+        >= 65 => "var(--accent-cyan)",
+        >= 50 => "var(--accent-orange)",
+        _ => "var(--accent-red)"
+    };
+}

@@ -1,0 +1,505 @@
+@page "/analytics/{Id:int}"
+@inject AnalyticsService AnalyticsService
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<PageTitle>Lumiaro — @(Profile?.Name ?? "Referee") Analytics</PageTitle>
+
+@if (Profile == null)
+{
+    <div class="empty-state-inline" style="margin-top:60px;">
+        <p>Referee not found or no analytics data available.</p>
+        <a href="/analytics" class="btn btn-ghost" style="margin-top:12px;">← Back to Analytics</a>
+    </div>
+}
+else
+{
+    @* ── Header ── *@
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:16px;">
+        <div style="display:flex;gap:16px;align-items:center;">
+            <AvatarPlaceholder Initials="@Profile.Initials" Size="56" FontSize="1.1rem" BorderWidth="2px" />
+            <div>
+                <h1 style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;margin-bottom:2px;">
+                    @Profile.Name
+                </h1>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <TierBadge Tier="Profile.Tier" />
+                    <span style="font-size:.82rem;color:var(--text-muted);">@Profile.Code</span>
+                    <StatusBadge Status="Profile.Status" />
+                </div>
+            </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+            <a href="/referees/@Profile.RefereeId" class="btn btn-ghost btn-sm">Full Profile →</a>
+            <a href="/analytics" class="btn btn-ghost btn-sm">← Rankings</a>
+        </div>
+    </div>
+
+    @* ── Season KPIs ── *@
+    <div class="widget-grid">
+        <StatCard Label="Season Average" Value="@Profile.SeasonAvgRating.ToString("F1")"
+                  Change="@($"{Profile.MatchesThisSeason} matches assessed")" Accent="cyan" />
+        <StatCard Label="Recent Form" Value="@Profile.RecentFormAvg.ToString("F1")"
+                  Change="@TrendLabel" Accent="@TrendAccent" />
+        <StatCard Label="Consistency (σ)" Value="@Profile.ConsistencyIndex.ToString("F2")"
+                  Change="@ConsistencyLabel" Accent="@ConsistencyAccent" />
+        <StatCard Label="Tier Rank" Value="@($"#{Profile.Rank}")"
+                  Change="@($"P{Profile.Percentile:F0}% of {Profile.TotalInTier} in tier")" Accent="blue" />
+    </div>
+
+    @* ── Competency Radar + Decision Accuracy ── *@
+    <div class="content-grid-2" style="margin-top:8px;">
+        <div class="card" style="padding:20px 24px;">
+            <div class="section-title">
+                Competency Radar
+                <span class="accent-line"></span>
+            </div>
+            <div style="display:flex;justify-content:center;">
+                <RadarChart Data="Profile.Competencies" Size="340" />
+            </div>
+            <div style="text-align:center;margin-top:6px;font-size:.78rem;color:var(--text-dim);">
+                Overall Average: <span style="color:@UiHelpers.ScoreColor(Profile.Competencies.OverallAverage);font-weight:600;">
+                    @Profile.Competencies.OverallAverage.ToString("F1")
+                </span> / 10.0
+            </div>
+        </div>
+
+        <div class="card" style="padding:20px 24px;">
+            <div class="section-title">
+                Decision Accuracy
+                <span class="accent-line"></span>
+            </div>
+            @if (Profile.DecisionAccuracy.TotalDecisionsReviewed > 0)
+            {
+                <div class="accuracy-hero">
+                    <div class="accuracy-ring">
+                        <svg viewBox="0 0 120 120">
+                            @{
+                                var pct = Profile.DecisionAccuracy.OverallAccuracy;
+                                var r = 50;
+                                var circ = 2 * Math.PI * r;
+                                var dashOffset = circ * (1 - pct / 100.0);
+                            }
+                            <circle cx="60" cy="60" r="@r" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8" />
+                            <circle cx="60" cy="60" r="@r" fill="none"
+                                    stroke="@AccuracyColor(pct)" stroke-width="8"
+                                    stroke-dasharray="@circ.ToString("F1")" stroke-dashoffset="@dashOffset.ToString("F1")"
+                                    stroke-linecap="round" transform="rotate(-90 60 60)" />
+                            <text x="60" y="56" text-anchor="middle" class="accuracy-ring-value">@pct.ToString("F0")%</text>
+                            <text x="60" y="72" text-anchor="middle" class="accuracy-ring-label">accuracy</text>
+                        </svg>
+                    </div>
+                    <div class="accuracy-meta">
+                        <div class="accuracy-meta-row">
+                            <span class="accuracy-meta-label">Decisions Reviewed</span>
+                            <span class="accuracy-meta-value">@Profile.DecisionAccuracy.TotalDecisionsReviewed</span>
+                        </div>
+                        <div class="accuracy-meta-row">
+                            <span class="accuracy-meta-label">Correct</span>
+                            <span class="accuracy-meta-value" style="color:var(--accent-lime);">@Profile.DecisionAccuracy.CorrectDecisions</span>
+                        </div>
+                        <div class="accuracy-meta-row">
+                            <span class="accuracy-meta-label">UEFA Elite Target</span>
+                            <span class="accuracy-meta-value" style="color:var(--text-dim);">≥ 70%</span>
+                        </div>
+                    </div>
+                </div>
+
+                @* By decision type *@
+                <div class="accuracy-breakdown" style="margin-top:16px;">
+                    @foreach (var kvp in Profile.DecisionAccuracy.ByType.OrderByDescending(x => x.Value.Total))
+                    {
+                        var typePct = Profile.DecisionAccuracy.AccuracyForType(kvp.Key);
+                        <div class="accuracy-type-row">
+                            <span class="accuracy-type-label">@kvp.Key.ToString()</span>
+                            <div class="accuracy-type-bar-wrap">
+                                <div class="accuracy-type-bar" style="width:@(typePct)%;background:@AccuracyColor(typePct);"></div>
+                            </div>
+                            <span class="accuracy-type-pct" style="color:@AccuracyColor(typePct);">@typePct.ToString("F0")%</span>
+                            <span class="accuracy-type-count">@kvp.Value.Correct/@kvp.Value.Total</span>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="empty-state-inline">No KMI panel decisions reviewed yet.</div>
+            }
+        </div>
+    </div>
+
+    @* ── Form Timeline ── *@
+    <div class="card" style="padding:20px 24px;margin-top:8px;">
+        <div class="section-title">
+            Match-by-Match Form
+            <span class="accent-line"></span>
+        </div>
+        @if (Profile.MatchForm.Count > 0)
+        {
+            <div class="form-timeline-chart">
+                <svg viewBox="0 0 700 180" class="trend-chart-svg">
+                    @{
+                        var fm = Profile.MatchForm.AsEnumerable().Reverse().ToList();
+                        var fmW = 650.0;
+                        var fmH = 130.0;
+                        var fmPadL = 30.0;
+                        var fmPadT = 15.0;
+                        var fmMax = 10.0;
+                        var fmMin = 0.0;
+                    }
+
+                    @* Grid *@
+                    @for (int g = 0; g <= 5; g++)
+                    {
+                        var gy = fmPadT + fmH * g / 5.0;
+                        var gv = fmMax - (fmMax - fmMin) * g / 5.0;
+                        <line x1="@fmPadL" y1="@gy.ToString("F0")" x2="@(fmPadL + fmW)" y2="@gy.ToString("F0")"
+                              stroke="rgba(255,255,255,0.05)" stroke-width="1" />
+                        <text><text x="@((fmPadL - 6).ToString("F0"))" y="@((gy + 4).ToString("F0"))"
+                                    text-anchor="end" class="trend-axis-label">@gv.ToString("F0")</text></text>
+                    }
+
+                    @* Reference line at 7.0 (acceptable standard) *@
+                    @{
+                        var refY = fmPadT + fmH - (7.0 - fmMin) / (fmMax - fmMin) * fmH;
+                    }
+                    <line x1="@fmPadL" y1="@refY.ToString("F1")" x2="@(fmPadL + fmW)" y2="@refY.ToString("F1")"
+                          stroke="rgba(255,109,0,0.3)" stroke-width="1" stroke-dasharray="4,4" />
+                    <text><text x="@(fmPadL + fmW + 4)" y="@((refY + 3).ToString("F1"))"
+                          class="trend-ref-label" fill="var(--accent-orange)">7.0</text></text>
+
+                    @* Area fill *@
+                    @{
+                        var areaPointList = new List<string>();
+                        var linePointList = new List<string>();
+                        for (int i = 0; i < fm.Count; i++)
+                        {
+                            var x = fmPadL + (double)i / Math.Max(1, fm.Count - 1) * fmW;
+                            var y = fmPadT + fmH - (fm[i].OverallRating - fmMin) / (fmMax - fmMin) * fmH;
+                            linePointList.Add($"{x:F1},{y:F1}");
+                            areaPointList.Add($"{x:F1},{y:F1}");
+                        }
+                        var areaStart = $"{fmPadL},{fmPadT + fmH}";
+                        var areaEnd = $"{fmPadL + (double)(fm.Count - 1) / Math.Max(1, fm.Count - 1) * fmW},{fmPadT + fmH}";
+                    }
+                    <polygon points="@($"{areaStart} {string.Join(" ", areaPointList)} {areaEnd}")"
+                             fill="rgba(0,229,255,0.08)" />
+                    <polyline points="@string.Join(" ", linePointList)"
+                              fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+
+                    @* Points *@
+                    @for (int i = 0; i < fm.Count; i++)
+                    {
+                        var x = fmPadL + (double)i / Math.Max(1, fm.Count - 1) * fmW;
+                        var y = fmPadT + fmH - (fm[i].OverallRating - fmMin) / (fmMax - fmMin) * fmH;
+                        var ptColor = UiHelpers.ScoreColor(fm[i].OverallRating);
+                        <circle cx="@x.ToString("F1")" cy="@y.ToString("F1")" r="4"
+                                fill="@ptColor" stroke="var(--panel-card)" stroke-width="2" />
+                        <text><text x="@x.ToString("F1")" y="@((y - 10).ToString("F1"))"
+                                    text-anchor="middle" class="trend-point-label" fill="@ptColor">@fm[i].OverallRating.ToString("F1")</text>
+                        </text>
+                        <text><text x="@x.ToString("F1")" y="@((fmPadT + fmH + 16).ToString("F1"))"
+                                    text-anchor="middle" class="trend-month-label">@fm[i].DateDisplay</text>
+                        </text>
+                    }
+                </svg>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state-inline">No match data available.</div>
+        }
+    </div>
+
+    @* ── Event Stats + Half Analysis ── *@
+    <div class="content-grid-2" style="margin-top:8px;">
+        @* Disciplinary stats *@
+        <div class="card" style="padding:20px 24px;">
+            <div class="section-title">
+                Disciplinary & Event Statistics
+                <span class="accent-line"></span>
+            </div>
+            <div class="event-stats-grid">
+                <div class="event-stat-cell">
+                    <div class="event-stat-value" style="color:var(--accent-gold);">@Profile.EventStats.YellowsPerGame.ToString("F1")</div>
+                    <div class="event-stat-label">Yellows/Game</div>
+                    <div class="event-stat-total">@Profile.EventStats.TotalYellowCards total</div>
+                </div>
+                <div class="event-stat-cell">
+                    <div class="event-stat-value" style="color:var(--accent-red);">@Profile.EventStats.RedsPerGame.ToString("F2")</div>
+                    <div class="event-stat-label">Reds/Game</div>
+                    <div class="event-stat-total">@Profile.EventStats.TotalRedCards total</div>
+                </div>
+                <div class="event-stat-cell">
+                    <div class="event-stat-value" style="color:var(--accent-cyan);">@Profile.EventStats.PenaltiesPerGame.ToString("F2")</div>
+                    <div class="event-stat-label">Penalties/Game</div>
+                    <div class="event-stat-total">@Profile.EventStats.TotalPenalties total</div>
+                </div>
+                <div class="event-stat-cell">
+                    <div class="event-stat-value" style="color:var(--accent-orange);">@Profile.EventStats.FoulsPerCard.ToString("F1")</div>
+                    <div class="event-stat-label">Fouls/Card</div>
+                    <div class="event-stat-total">Leniency threshold</div>
+                </div>
+                <div class="event-stat-cell">
+                    <div class="event-stat-value" style="color:var(--accent-magenta);">@Profile.EventStats.CriticalPerGame.ToString("F2")</div>
+                    <div class="event-stat-label">Critical/Game</div>
+                    <div class="event-stat-total">@Profile.EventStats.TotalCriticalIncidents total</div>
+                </div>
+                <div class="event-stat-cell">
+                    <div class="event-stat-value" style="color:var(--accent-blue);">@Profile.EventStats.TotalVarReviews</div>
+                    <div class="event-stat-label">VAR Reviews</div>
+                    <div class="event-stat-total">total season</div>
+                </div>
+            </div>
+        </div>
+
+        @* Half-by-half analysis *@
+        <div class="card" style="padding:20px 24px;">
+            <div class="section-title">
+                Half-by-Half Analysis
+                <span class="accent-line"></span>
+            </div>
+            <div class="half-comparison">
+                <div class="half-col">
+                    <div class="half-heading">1st Half</div>
+                    <div class="half-stat-row">
+                        <span class="half-stat-label">Events</span>
+                        <span class="half-stat-value">@Profile.HalfAnalysis.FirstHalfEvents</span>
+                    </div>
+                    <div class="half-stat-row">
+                        <span class="half-stat-label">Cards</span>
+                        <span class="half-stat-value">@Profile.HalfAnalysis.FirstHalfCards</span>
+                    </div>
+                    <div class="half-stat-row">
+                        <span class="half-stat-label">Critical</span>
+                        <span class="half-stat-value">@Profile.HalfAnalysis.FirstHalfCritical</span>
+                    </div>
+                </div>
+                <div class="half-divider">
+                    <div class="half-divider-line"></div>
+                    <span class="half-divider-label">HT</span>
+                    <div class="half-divider-line"></div>
+                </div>
+                <div class="half-col">
+                    <div class="half-heading">2nd Half</div>
+                    <div class="half-stat-row">
+                        <span class="half-stat-label">Events</span>
+                        <span class="half-stat-value">@Profile.HalfAnalysis.SecondHalfEvents</span>
+                    </div>
+                    <div class="half-stat-row">
+                        <span class="half-stat-label">Cards</span>
+                        <span class="half-stat-value">@Profile.HalfAnalysis.SecondHalfCards</span>
+                    </div>
+                    <div class="half-stat-row">
+                        <span class="half-stat-label">Critical</span>
+                        <span class="half-stat-value">@Profile.HalfAnalysis.SecondHalfCritical</span>
+                    </div>
+                </div>
+            </div>
+            <div class="half-drift-indicator drift-@Profile.HalfAnalysis.DriftSeverity" style="margin-top:16px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    @if (Profile.HalfAnalysis.DriftSeverity == "good")
+                    {
+                        <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                    }
+                    else
+                    {
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                    }
+                </svg>
+                @Profile.HalfAnalysis.DriftIndicator
+            </div>
+        </div>
+    </div>
+
+    @* ── Bias Indicators + Tier Readiness ── *@
+    <div class="content-grid-2" style="margin-top:8px;">
+        @* Bias *@
+        <div class="card" style="padding:20px 24px;">
+            <div class="section-title">
+                Home / Away Bias Indicators
+                <span class="accent-line"></span>
+            </div>
+            <div class="bias-section">
+                <BiasBar Label="Yellow Cards"
+                         LeftValue="Profile.Bias.HomeYellows" RightValue="Profile.Bias.AwayYellows"
+                         Assessment="@Profile.Bias.BiasAssessment" Severity="@Profile.Bias.BiasSeverity" />
+
+                <BiasBar Label="Red Cards"
+                         LeftValue="Profile.Bias.HomeReds" RightValue="Profile.Bias.AwayReds" />
+
+                <BiasBar Label="Penalties"
+                         LeftValue="Profile.Bias.HomePenalties" RightValue="Profile.Bias.AwayPenalties" />
+
+                <BiasBar Label="Fouls"
+                         LeftValue="Profile.Bias.HomeFouls" RightValue="Profile.Bias.AwayFouls" />
+            </div>
+            <div style="font-size:.72rem;color:var(--text-dim);margin-top:12px;">
+                50% = perfectly balanced. Research shows home bias is common (increased penalties to home teams, fewer cards).
+                VAR adoption and referee experience reduce this effect.
+            </div>
+        </div>
+
+        @* Tier readiness *@
+        <div class="card" style="padding:20px 24px;">
+            <div class="section-title">
+                Tier Readiness Assessment
+                <span class="accent-line"></span>
+            </div>
+            <div class="readiness-header">
+                <div>
+                    <div style="font-size:.78rem;color:var(--text-muted);">Current → Target</div>
+                    <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+                        <TierBadge Tier="Profile.TierReadiness.CurrentTier" />
+                        <span style="color:var(--text-dim);">→</span>
+                        <TierBadge Tier="Profile.TierReadiness.TargetTier" />
+                    </div>
+                </div>
+                <div class="readiness-score-circle" style="border-color:@Profile.TierReadiness.ReadinessColor;">
+                    <span style="color:@Profile.TierReadiness.ReadinessColor;font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600;">
+                        @Profile.TierReadiness.ReadinessScore.ToString("F0")%
+                    </span>
+                    <span style="font-size:.65rem;color:var(--text-dim);">@Profile.TierReadiness.ReadinessLabel</span>
+                </div>
+            </div>
+
+            <div class="readiness-criteria-list" style="margin-top:16px;">
+                @foreach (var c in Profile.TierReadiness.Criteria)
+                {
+                    <div class="readiness-criteria-row">
+                        <span class="readiness-criteria-icon @(c.Met ? "met" : "unmet")">
+                            @if (c.Met)
+                            {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><path d="M20 6L9 17l-5-5"/></svg>
+                            }
+                            else
+                            {
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            }
+                        </span>
+                        <span class="readiness-criteria-name">@c.Name</span>
+                        <span class="readiness-criteria-score @(c.Met ? "met" : "unmet")">
+                            @c.ActualScore.ToString("F1") / @c.RequiredScore.ToString("F1")
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* ── Match History ── *@
+    <div class="table-wrap" style="margin-top:8px;">
+        <div class="table-header">
+            <div class="table-header-left">
+                <div class="table-title">Match History</div>
+                <span class="table-count">@Profile.MatchForm.Count matches</span>
+            </div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th><th>Match</th><th>Competition</th><th>Rating</th>
+                    <th>Accuracy</th><th>Cards</th><th>Events</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var m in Profile.MatchForm)
+                {
+                    <tr>
+                        <td class="mono-cell" style="font-size:.78rem;color:var(--text-muted);">@m.MatchDate.ToString("dd MMM yy")</td>
+                        <td style="font-weight:500;font-size:.88rem;">@m.MatchTitle</td>
+                        <td><TierBadge Tier="m.CompetitionTier" /></td>
+                        <td>
+                            <span class="rating-pill" style="color:@UiHelpers.ScoreColor(m.OverallRating);border-color:@UiHelpers.ScoreColor(m.OverallRating);">
+                                @m.OverallRating.ToString("F1")
+                            </span>
+                        </td>
+                        <td class="mono-cell">
+                            @if (m.AccuracyPercent.HasValue)
+                            {
+                                <span style="color:@AccuracyColor(m.AccuracyPercent.Value)">@m.AccuracyPercent.Value.ToString("F0")%</span>
+                            }
+                            else
+                            {
+                                <span style="color:var(--text-dim);">—</span>
+                            }
+                        </td>
+                        <td class="mono-cell">
+                            @if (m.YellowCards > 0)
+                            {
+                                <span style="color:var(--accent-gold);">@m.YellowCards<span style="font-size:.7rem;">Y</span></span>
+                            }
+                            @if (m.RedCards > 0)
+                            {
+                                <span style="color:var(--accent-red);margin-left:4px;">@m.RedCards<span style="font-size:.7rem;">R</span></span>
+                            }
+                            @if (m.YellowCards == 0 && m.RedCards == 0)
+                            {
+                                <span style="color:var(--text-dim);">—</span>
+                            }
+                        </td>
+                        <td class="mono-cell">
+                            @m.EventCount
+                            @if (m.CriticalEventCount > 0)
+                            {
+                                <span style="color:var(--accent-red);font-size:.7rem;margin-left:2px;">(@m.CriticalEventCount crit)</span>
+                            }
+                        </td>
+                        <td>
+                            <a href="/reports/@m.ReportId" class="btn btn-ghost btn-sm" style="font-size:.72rem;padding:2px 8px;">View →</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private RefereeAnalyticsProfile? Profile;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Profile = await AnalyticsService.GetRefereeProfileAsync(Id);
+    }
+
+    private string TrendLabel => Profile?.TrendChange switch
+    {
+        > 0 => $"▲ +{Profile.TrendChange:F1} improving",
+        < 0 => $"▼ {Profile!.TrendChange:F1} declining",
+        _ => "Stable"
+    };
+
+    private string TrendAccent => Profile?.TrendChange switch
+    {
+        > 0 => "lime",
+        < 0 => "orange",
+        _ => "cyan"
+    };
+
+    private string ConsistencyLabel => Profile?.ConsistencyIndex switch
+    {
+        <= 0.5 => "Excellent reliability",
+        <= 0.8 => "Good consistency",
+        <= 1.2 => "Moderate variation",
+        _ => "High volatility — review"
+    };
+
+    private string ConsistencyAccent => Profile?.ConsistencyIndex switch
+    {
+        <= 0.5 => "lime",
+        <= 0.8 => "cyan",
+        <= 1.2 => "orange",
+        _ => "orange"
+    };
+
+    private static string AccuracyColor(double pct) => pct switch
+    {
+        >= 85 => "var(--accent-lime)",
+        >= 70 => "var(--accent-cyan)",
+        >= 55 => "var(--accent-orange)",
+        _ => "var(--accent-red)"
+    };
+}

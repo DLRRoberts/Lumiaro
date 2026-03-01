@@ -1,0 +1,39 @@
+﻿@using LumiaroAdmin.Data.Models
+<div class="competency-card">
+    <div class="competency-card-header">
+        <span class="competency-card-title">@Title</span>
+        <span class="competency-card-score" style="color:@UiHelpers.ScoreColor(Comp.Score);">@Comp.Score.ToString("F1")</span>
+    </div>
+    <div class="competency-score-bar">
+        <div class="competency-score-fill" style="width:@(Comp.Score * 10)%;background:@UiHelpers.ScoreColor(Comp.Score);"></div>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Comp.Notes))
+    {
+        <div class="competency-notes">@Comp.Notes</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Comp.Strengths))
+    {
+        <div class="competency-detail">
+            <span class="competency-detail-label" style="color:var(--accent-lime);">Strengths:</span>
+            @Comp.Strengths
+        </div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Comp.AreasForImprovement))
+    {
+        <div class="competency-detail">
+            <span class="competency-detail-label" style="color:var(--accent-orange);">Areas for Improvement:</span>
+            @Comp.AreasForImprovement
+        </div>
+    }
+</div>
+@code {
+    
+    [Parameter]
+    public string Title { get; set; }
+    
+    [Parameter]
+    public CompetencyScore Comp { get; set; }
+    
+    [Parameter]
+    public string Key { get; set; }
+}

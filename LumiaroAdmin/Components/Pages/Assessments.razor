@@ -1,0 +1,347 @@
+@page "/assessments"
+@using LumiaroAdmin.Data.Models
+@inject AssessmentService AssessmentService
+@inject FixtureService FixtureService
+@inject RefereeService RefereeService
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<PageTitle>@L["assessments.pageTitle"]</PageTitle>
+
+@* ── Header ── *@
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;flex-wrap:wrap;gap:16px;">
+    <div>
+        <h1 style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;margin-bottom:4px;">
+            Match Official Assessments
+        </h1>
+        <p style="font-size:.85rem;color:var(--text-muted);font-weight:300;">
+            View, create, and manage PGMOL-standard assessments for match officials.
+        </p>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;">
+        <MiniStat Value="@Stats.total.ToString()" Label="Total" Color="var(--accent-cyan)" />
+        <MiniStat Value="@Stats.draft.ToString()" Label="Draft" Color="var(--text-muted)" />
+        <MiniStat Value="@Stats.submitted.ToString()" Label="Submitted" Color="var(--accent-orange)" />
+        <MiniStat Value="@Stats.reviewed.ToString()" Label="Reviewed" Color="var(--accent-blue)" />
+        <MiniStat Value="@Stats.finalised.ToString()" Label="Final" Color="var(--accent-lime)" />
+        <button class="btn btn-primary" style="margin-left:8px;" @onclick="OpenNewAssessment">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Assessment
+        </button>
+    </div>
+</div>
+
+@* ── Filters ── *@
+<div class="assessment-filters">
+    <div class="search-input-wrap" style="flex:1;max-width:320px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="search-input" placeholder="Search by name, match, or code..."
+               @bind="SearchQuery" @bind:event="oninput" @bind:after="ApplyFiltersAsync" />
+    </div>
+
+    <div class="form-group" style="min-width:180px;">
+        <select class="form-select" @bind="FilterRefereeId" @bind:after="ApplyFiltersAsync">
+            <option value="0">@L["assessments.allOfficials"]</option>
+            @foreach (var r in AssessedReferees)
+            {
+                <option value="@r.Id">@r.Name</option>
+            }
+        </select>
+    </div>
+
+    <div class="form-group" style="min-width:200px;">
+        <select class="form-select" @bind="FilterFixtureId" @bind:after="ApplyFiltersAsync">
+            <option value="0">@L["assessments.allFixtures"]</option>
+            @foreach (var f in AssessedFixtures)
+            {
+                <option value="@f.Id">@f.Title (@f.Date.ToString("dd MMM"))</option>
+            }
+        </select>
+    </div>
+
+    <div class="form-group" style="min-width:130px;">
+        <input type="date" class="form-input" @bind="FilterDateFrom" @bind:after="ApplyFiltersAsync" style="font-size:.8rem;" />
+    </div>
+    <span style="color:var(--text-dim);font-size:.75rem;align-self:center;">to</span>
+    <div class="form-group" style="min-width:130px;">
+        <input type="date" class="form-input" @bind="FilterDateTo" @bind:after="ApplyFiltersAsync" style="font-size:.8rem;" />
+    </div>
+
+    <div class="filter-bar" style="flex-shrink:0;">
+        <button class="filter-pill @(FilterStatus == null ? "active" : "")" @onclick="() => SetStatusFilter(null)">All</button>
+        <button class="filter-pill @(FilterStatus == AssessmentStatus.Draft ? "active" : "")" @onclick="() => SetStatusFilter(AssessmentStatus.Draft)">Draft</button>
+        <button class="filter-pill @(FilterStatus == AssessmentStatus.Submitted ? "active" : "")" @onclick="() => SetStatusFilter(AssessmentStatus.Submitted)">Submitted</button>
+        <button class="filter-pill @(FilterStatus == AssessmentStatus.Reviewed ? "active" : "")" @onclick="() => SetStatusFilter(AssessmentStatus.Reviewed)">Reviewed</button>
+        <button class="filter-pill @(FilterStatus == AssessmentStatus.Finalised ? "active" : "")" @onclick="() => SetStatusFilter(AssessmentStatus.Finalised)">Finalised</button>
+    </div>
+
+    @if (HasActiveFilters)
+    {
+        <button class="btn btn-ghost" style="font-size:.75rem;" @onclick="ClearFilters">@L["common.clearAll"]</button>
+    }
+</div>
+
+@* ── Results ── *@
+@if (!Filtered.Any())
+{
+    <div class="card" style="padding:48px;text-align:center;">
+        <div style="color:var(--text-dim);font-size:.95rem;">No assessments match your criteria.</div>
+    </div>
+}
+else
+{
+    <div class="assessment-list">
+        @foreach (var a in Filtered)
+        {
+            <div class="assessment-card" @onclick="() => ViewAssessment(a.Id)">
+                <div class="assessment-card-left">
+                    <AvatarPlaceholder Initials="@a.RefereeInitials" Size="46" FontSize=".92rem" />
+                </div>
+                <div class="assessment-card-body">
+                    <div class="assessment-card-top-row">
+                        <div class="assessment-card-name">@a.RefereeName</div>
+                        <span class="assessment-status-badge @StatusCss(a.Status)">@a.StatusLabel</span>
+                    </div>
+                    <div class="assessment-card-meta">
+                        <span>@a.RefereeCode</span>
+                        <span>@a.OfficialRole.Label()</span>
+                        <TierBadge Tier="a.CompetitionTier" />
+                    </div>
+                    <div class="assessment-card-match">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        @a.MatchTitle — @a.DateDisplay
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(a.SummaryNotes))
+                    {
+                        <div class="assessment-card-summary">@Truncate(a.SummaryNotes, 140)</div>
+                    }
+                </div>
+                <div class="assessment-card-right">
+                    <div class="assessment-card-score" style="color:@UiHelpers.ScoreColor(a.OverallScore);">
+                        @a.OverallScore.ToString("F1")
+                    </div>
+                    <div class="assessment-card-score-label">Overall</div>
+                    <div class="assessment-card-sections">
+                        @if (a.Technical?.AverageScore > 0)
+                        {
+                            <span title="Technical"><span style="color:var(--text-dim);font-size:.55rem;">TECH</span> <span style="color:@UiHelpers.ScoreColor(a.Technical.AverageScore);">@a.Technical.AverageScore.ToString("F1")</span></span>
+                        }
+                        @if (a.Delegate?.AverageScore > 0)
+                        {
+                            <span title="Delegate"><span style="color:var(--text-dim);font-size:.55rem;">DEL</span> <span style="color:@UiHelpers.ScoreColor(a.Delegate.AverageScore);">@a.Delegate.AverageScore.ToString("F1")</span></span>
+                        }
+                        @if (a.Kmi?.TotalIncidents > 0)
+                        {
+                            <span title="KMI Accuracy"><span style="color:var(--text-dim);font-size:.55rem;">KMI</span> <span style="color:@UiHelpers.ScoreColor(a.Kmi.AccuracyPercent / 10);">@a.Kmi.AccuracyPercent%</span></span>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@* ── New Assessment Modal (fixture + official picker) ── *@
+@if (ShowNewModal)
+{
+    <div class="modal-overlay open">
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-header">
+                <div class="modal-title">@L["assessments.createNew"]</div>
+                <button class="modal-close" @onclick="() => ShowNewModal = false">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">@L["assessments.selectFixture"]</label>
+                    <select class="form-select" @bind="NewFixtureId" @bind:after="OnNewFixtureChanged">
+                        <option value="0">— @L["assessments.chooseFixture"] —</option>
+                        @foreach (var f in AllFixtures)
+                        {
+                            <option value="@f.Id">@f.MatchTitle — @f.DateDisplay (@f.DivisionName)</option>
+                        }
+                    </select>
+                </div>
+
+                @if (NewFixtureId > 0 && SelectedNewFixture != null)
+                {
+                    var selectedFixture = SelectedNewFixture;
+                    if (selectedFixture != null)
+                    {
+                        <div class="form-group" style="margin-top:16px;">
+                            <label class="form-label">@L["assessments.selectOfficial"]</label>
+                            @{
+                                var officials = GetAssignedOfficials(selectedFixture);
+                            }
+                            @if (!officials.Any())
+                            {
+                                <div style="color:var(--accent-orange);font-size:.82rem;padding:12px;background:rgba(255,109,0,0.06);border-radius:var(--radius-sm);border:1px solid rgba(255,109,0,0.12);">
+                                    @L["assessments.noOfficials"]
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="new-assessment-officials">
+                                    @foreach (var (role, assignment) in officials)
+                                    {
+                                        var existing = ExistingAssessmentLookup.GetValueOrDefault((selectedFixture.Id, assignment.RefereeId, role));
+                                        var hasExisting = existing != null;
+
+                                        <div class="new-assessment-official-row @(hasExisting ? "has-existing" : "")"
+                                             @onclick="() => SelectNewOfficial(selectedFixture, assignment, role, existing)">
+                                            <AvatarPlaceholder Initials="@assignment.RefereeInitials" Size="36" FontSize=".78rem" />
+                                            <div style="flex:1;min-width:0;">
+                                                <div style="font-weight:600;font-size:.88rem;">@assignment.RefereeName</div>
+                                                <div style="font-size:.72rem;color:var(--text-dim);display:flex;gap:8px;align-items:center;margin-top:2px;">
+                                                    <span>@role.Label()</span>
+                                                    <TierBadge Tier="assignment.RefereeTier" />
+                                                </div>
+                                            </div>
+                                            @if (hasExisting)
+                                            {
+                                                <span class="assessment-status-badge @StatusCss(existing!.Status)" style="font-size:.55rem;">
+                                                    @existing.StatusLabel
+                                                </span>
+                                                <span style="font-size:.7rem;color:var(--text-dim);">View / Edit</span>
+                                            }
+                                            else
+                                            {
+                                                <span style="font-size:.7rem;color:var(--accent-cyan);">Create →</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => ShowNewModal = false">@L["common.cancel"]</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Assessment> Filtered = new();
+    private List<(int Id, string Name)> AssessedReferees = new();
+    private List<(int Id, string Title, DateTime Date)> AssessedFixtures = new();
+    private List<Fixture> AllFixtures = new();
+    private (int total, int draft, int submitted, int reviewed, int finalised) Stats;
+
+    // Filters
+    private string SearchQuery = "";
+    private int FilterRefereeId;
+    private int FilterFixtureId;
+    private DateTime? FilterDateFrom;
+    private DateTime? FilterDateTo;
+    private AssessmentStatus? FilterStatus;
+    private bool HasActiveFilters => !string.IsNullOrWhiteSpace(SearchQuery) || FilterRefereeId > 0 ||
+        FilterFixtureId > 0 || FilterDateFrom.HasValue || FilterDateTo.HasValue || FilterStatus.HasValue;
+
+    // New assessment modal
+    private bool ShowNewModal;
+    private int NewFixtureId;
+    private Fixture? SelectedNewFixture;
+    private Dictionary<(int FixtureId, int RefereeId, OfficialRole Role), Assessment> ExistingAssessmentLookup = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        AssessedReferees = await AssessmentService.GetAssessedRefereesAsync();
+        AssessedFixtures = await AssessmentService.GetAssessedFixturesAsync();
+        AllFixtures = await FixtureService.GetAllFixturesAsync();
+        Stats = await AssessmentService.GetStatusCountsAsync();
+        await ApplyFiltersAsync();
+    }
+
+    private void ViewAssessment(int id) => Nav.NavigateTo($"/assessments/{id}");
+
+    private async Task ApplyFiltersAsync()
+    {
+        Filtered = await AssessmentService.SearchAsync(
+            SearchQuery,
+            FilterRefereeId > 0 ? FilterRefereeId : null,
+            FilterFixtureId > 0 ? FilterFixtureId : null,
+            FilterDateFrom, FilterDateTo, FilterStatus
+        );
+    }
+
+    private async Task SetStatusFilter(AssessmentStatus? status)
+    {
+        FilterStatus = status;
+        await ApplyFiltersAsync();
+    }
+
+    private async Task ClearFilters()
+    {
+        SearchQuery = "";
+        FilterRefereeId = 0;
+        FilterFixtureId = 0;
+        FilterDateFrom = null;
+        FilterDateTo = null;
+        FilterStatus = null;
+        await ApplyFiltersAsync();
+    }
+
+    private void OpenNewAssessment()
+    {
+        NewFixtureId = 0;
+        SelectedNewFixture = null;
+        ExistingAssessmentLookup.Clear();
+        ShowNewModal = true;
+    }
+
+    private async Task OnNewFixtureChanged()
+    {
+        SelectedNewFixture = null;
+        ExistingAssessmentLookup.Clear();
+        if (NewFixtureId > 0)
+        {
+            SelectedNewFixture = await FixtureService.GetFixtureByIdAsync(NewFixtureId);
+            if (SelectedNewFixture != null)
+            {
+                foreach (var (role, assignment) in GetAssignedOfficials(SelectedNewFixture))
+                {
+                    var existing = await AssessmentService.FindExistingAsync(SelectedNewFixture.Id, assignment.RefereeId, role);
+                    if (existing != null)
+                        ExistingAssessmentLookup[(SelectedNewFixture.Id, assignment.RefereeId, role)] = existing;
+                }
+            }
+        }
+    }
+
+    private List<(OfficialRole Role, OfficialAssignment Assignment)> GetAssignedOfficials(Fixture fixture)
+    {
+        var list = new List<(OfficialRole, OfficialAssignment)>();
+        if (fixture.Referee != null) list.Add((OfficialRole.Referee, fixture.Referee));
+        if (fixture.AssistantReferee1 != null) list.Add((OfficialRole.AssistantReferee1, fixture.AssistantReferee1));
+        if (fixture.AssistantReferee2 != null) list.Add((OfficialRole.AssistantReferee2, fixture.AssistantReferee2));
+        if (fixture.MatchOfficial != null) list.Add((OfficialRole.MatchOfficial, fixture.MatchOfficial));
+        return list;
+    }
+
+    private void SelectNewOfficial(Fixture fixture, OfficialAssignment assignment, OfficialRole role, Assessment? existing)
+    {
+        ShowNewModal = false;
+        if (existing != null)
+        {
+            Nav.NavigateTo($"/assessments/{existing.Id}");
+        }
+        else
+        {
+            Nav.NavigateTo($"/assessments/new?fixtureId={fixture.Id}&refereeId={assignment.RefereeId}&role={(int)role}");
+        }
+    }
+
+    private static string StatusCss(AssessmentStatus s) => s switch
+    {
+        AssessmentStatus.Draft => "status-draft",
+        AssessmentStatus.Submitted => "status-submitted",
+        AssessmentStatus.Reviewed => "status-reviewed",
+        AssessmentStatus.Finalised => "status-finalised",
+        _ => "status-draft"
+    };
+
+    private static string Truncate(string text, int maxLen) =>
+        text.Length <= maxLen ? text : text[..maxLen].TrimEnd() + "…";
+}

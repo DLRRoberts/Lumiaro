@@ -1,0 +1,7 @@
+<span class="badge @UiHelpers.StatusCssClass(Status)">
+    <span class="badge-dot"></span>@UiHelpers.StatusLabel(Status)
+</span>
+
+@code {
+    [Parameter, EditorRequired] public RefereeStatus Status { get; set; }
+}

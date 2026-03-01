@@ -1,0 +1,137 @@
+@page "/search"
+@inject RefereeService RefereeService
+@inject NavigationManager Nav
+
+<PageTitle>@L["referees.search.pageTitle"]</PageTitle>
+
+@* ── Search Hero ── *@
+<div style="text-align:center;margin-bottom:36px;">
+    <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;margin-bottom:6px;">
+        Find a Referee
+    </h1>
+    <p style="font-size:.88rem;color:var(--text-muted);font-weight:300;max-width:500px;margin:0 auto 24px;">
+        Search the referee pool by name, location, tier, or match history.
+        Click any referee to view their full profile and match log.
+    </p>
+    <div class="search-input-wrap" style="max-width:560px;margin:0 auto;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" class="search-input" placeholder="@L["referees.search.placeholder"]"
+               style="padding:14px 14px 14px 44px;font-size:.95rem;border-radius:var(--radius-md);"
+               @bind="SearchQuery" @bind:event="oninput" @bind:after="ApplySearchAsync" />
+    </div>
+</div>
+
+@* ── Filters + Sort ── *@
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+    <FilterBar Options="TierFilters" ActiveFilter="@ActiveTierFilter"
+               ActiveFilterChanged="OnTierFilterChanged" />
+    <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:.72rem;color:var(--text-dim);font-family:'JetBrains Mono',monospace;">SORT BY:</span>
+        <select class="form-select" style="width:auto;padding:6px 32px 6px 12px;font-size:.78rem;border-radius:var(--radius-sm);"
+                @bind="SortBy" @bind:after="ApplySearchAsync">
+            <option value="name">Name A–Z</option>
+            <option value="matches">Most Matches</option>
+            <option value="rating">Highest Rated</option>
+            <option value="recent">Recently Active</option>
+        </select>
+    </div>
+</div>
+
+@* ── Results Count ── *@
+<div style="margin-bottom:16px;">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text-dim);letter-spacing:1px;">
+        SHOWING @Results.Count REFEREES
+    </span>
+</div>
+
+@* ── Result Cards ── *@
+<div style="display:grid;grid-template-columns:1fr;gap:12px;">
+    @foreach (var r in Results)
+    {
+        <a href="/referees/@r.Id" class="ref-card">
+            <div class="ref-card-photo-placeholder">@r.Initials</div>
+            <div class="ref-card-info">
+                <div class="ref-card-name">@r.FullName</div>
+                <div class="ref-card-meta">
+                    <span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                        </svg>
+                        @r.Location
+                    </span>
+                    <span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                        </svg>
+                        Age @r.Age
+                    </span>
+                    <TierBadge Tier="r.Tier" />
+                    <StatusBadge Status="r.Status" />
+                </div>
+            </div>
+            <div class="ref-card-stats">
+                <div>
+                    <div class="ref-card-stat-val">@r.TotalMatches</div>
+                    <div class="ref-card-stat-lbl">Matches</div>
+                </div>
+                <div>
+                    <div class="ref-card-stat-val" style="color:@UiHelpers.ScoreColor(r.AverageScore);">@r.AverageScore.ToString("F1")</div>
+                    <div class="ref-card-stat-lbl">Avg Score</div>
+                </div>
+                <div>
+                    <div class="ref-card-stat-val" style="color:var(--accent-gold);">@r.AccuracyPercent.ToString("F1")%</div>
+                    <div class="ref-card-stat-lbl">Accuracy</div>
+                </div>
+            </div>
+        </a>
+    }
+</div>
+
+@* ── Pagination ── *@
+<div style="display:flex;justify-content:center;margin-top:28px;">
+    <div class="pagination">
+        <button>‹</button><button class="active">1</button><button>›</button>
+    </div>
+</div>
+
+@code {
+    private List<Referee> Results = new();
+    private string SearchQuery = "";
+    private string ActiveTierFilter = "All Tiers";
+    private string SortBy = "name";
+
+    private static readonly List<string> TierFilters = new()
+    {
+        "All Tiers", "FIFA", "Premier", "Championship", "League 1+", "Grassroots"
+    };
+
+    protected override async Task OnInitializedAsync() => await ApplySearchAsync();
+
+    private async Task OnTierFilterChanged(string filter) { ActiveTierFilter = filter; await ApplySearchAsync(); }
+
+    private async Task ApplySearchAsync()
+    {
+        RefereeTier? tier = ActiveTierFilter switch
+        {
+            "FIFA" => RefereeTier.FifaInternational,
+            "Premier" => RefereeTier.PremierLeague,
+            "Championship" => RefereeTier.Championship,
+            "League 1+" => RefereeTier.LeagueOne,
+            "Grassroots" => RefereeTier.Grassroots,
+            _ => null
+        };
+
+        Results = await RefereeService.SearchRefereesAsync(SearchQuery, tier, null);
+
+        Results = SortBy switch
+        {
+            "matches" => Results.OrderByDescending(r => r.TotalMatches).ToList(),
+            "rating" => Results.OrderByDescending(r => r.AverageScore).ToList(),
+            "recent" => Results.OrderByDescending(r => r.LastActiveDate).ToList(),
+            _ => Results.OrderBy(r => r.LastName).ToList()
+        };
+    }
+}

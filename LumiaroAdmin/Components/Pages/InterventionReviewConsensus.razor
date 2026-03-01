@@ -1,0 +1,289 @@
+﻿@page "/reports/{ReportId:int}/reviews"
+@inject MatchReportService ReportService
+@inject InterventionReviewService ReviewService
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<PageTitle>@L["reviews.consensus.pageTitle"]</PageTitle>
+
+@if (Report == null)
+{
+    <div class="empty-state-inline" style="margin-top:60px;">
+        <p>@L["reports.notFound"]</p>
+        <a href="/reports" class="btn btn-ghost" style="margin-top:12px;">← @L["reports.backToReports"]</a>
+    </div>
+}
+else
+{
+    @* ── Header ── *@
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:16px;">
+        <div>
+            <h1 style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;margin-bottom:4px;">
+                @L["reviews.consensus.pageTitle"]
+            </h1>
+            <p style="font-size:.85rem;color:var(--text-muted);font-weight:300;">
+                @Report.MatchTitle · @Report.DateDisplay · @Report.RefereeName
+            </p>
+        </div>
+        <div style="display:flex;gap:10px;">
+            <a href="/reports/@ReportId/review" class="btn btn-primary btn-sm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                @L["reviews.form.submitReview"]
+            </a>
+            <a href="/reports/@ReportId" class="btn btn-ghost btn-sm">← Report</a>
+        </div>
+    </div>
+
+    @if (Summary == null || Summary.TotalReviewers == 0)
+    {
+        <div class="card" style="padding:40px 24px;text-align:center;">
+            <div style="font-size:2rem;margin-bottom:12px;opacity:0.3;">📋</div>
+            <p style="color:var(--text-muted);font-size:.9rem;">No reviews submitted yet.</p>
+            <a href="/reports/@ReportId/review" class="btn btn-primary" style="margin-top:16px;">
+                Be the first to review →
+            </a>
+        </div>
+    }
+    else
+    {
+        @* ── Match Consensus KPIs ── *@
+        <div class="widget-grid">
+            <div class="stat-card cyan">
+                <div class="stat-label">Accuracy</div>
+                <div class="stat-value" style="color:@ScoreColor(Summary.GlobalAccuracy);">@Summary.GlobalAccuracy.ToString("F0")</div>
+                <div class="stat-change">Consensus across @Summary.TotalReviewers reviewers</div>
+            </div>
+            <div class="stat-card lime">
+                <div class="stat-label">Consistency</div>
+                <div class="stat-value" style="color:@ScoreColor(Summary.GlobalConsistency);">@Summary.GlobalConsistency.ToString("F0")</div>
+                <div class="stat-change">@Summary.TotalReviews individual scores</div>
+            </div>
+            <div class="stat-card orange">
+                <div class="stat-label">Communication</div>
+                <div class="stat-value" style="color:@ScoreColor(Summary.GlobalCommunication);">@Summary.GlobalCommunication.ToString("F0")</div>
+                <div class="stat-change">@Summary.TotalEvents events assessed</div>
+            </div>
+            <div class="stat-card blue">
+                <div class="stat-label">Match Handling</div>
+                <div class="stat-value" style="color:@ScoreColor(Summary.GlobalMatchHandling);">@Summary.GlobalMatchHandling.ToString("F0")</div>
+                <div class="stat-change">Overall: @Summary.GlobalOverall.ToString("F0")/100</div>
+            </div>
+        </div>
+
+        @* ── Reviewer Breakdown Table ── *@
+        <div class="table-wrap" style="margin-top:8px;">
+            <div class="table-header">
+                <div class="table-header-left">
+                    <div class="table-title">Reviewer Breakdown</div>
+                    <span class="table-count">@Summary.TotalReviewers reviewers</span>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Reviewer</th>
+                        <th>Role</th>
+                        <th>Events</th>
+                        <th style="color:var(--accent-cyan);">Accuracy</th>
+                        <th style="color:var(--accent-lime);">Consistency</th>
+                        <th style="color:var(--accent-orange);">Communication</th>
+                        <th style="color:var(--accent-magenta);">Match Handling</th>
+                        <th>Overall</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var reviewer in Summary.ReviewerSummaries)
+                    {
+                        <tr>
+                            <td style="font-weight:500;">@reviewer.ReviewerName</td>
+                            <td>
+                                <span class="reviewer-role-badge">@reviewer.ReviewerRole</span>
+                            </td>
+                            <td class="mono-cell">@reviewer.EventsReviewed</td>
+                            <td class="mono-cell" style="color:@ScoreColor(reviewer.AvgAccuracy);">@reviewer.AvgAccuracy.ToString("F0")</td>
+                            <td class="mono-cell" style="color:@ScoreColor(reviewer.AvgConsistency);">@reviewer.AvgConsistency.ToString("F0")</td>
+                            <td class="mono-cell" style="color:@ScoreColor(reviewer.AvgCommunication);">@reviewer.AvgCommunication.ToString("F0")</td>
+                            <td class="mono-cell" style="color:@ScoreColor(reviewer.AvgMatchHandling);">@reviewer.AvgMatchHandling.ToString("F0")</td>
+                            <td>
+                                <span class="rating-pill" style="color:@ScoreColor(reviewer.OverallAverage);border-color:@ScoreColor(reviewer.OverallAverage);">
+                                    @reviewer.OverallAverage.ToString("F0")
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr style="font-weight:600;border-top:2px solid var(--border-medium);">
+                        <td colspan="3" style="color:var(--text-muted);">Consensus Average</td>
+                        <td class="mono-cell" style="color:@ScoreColor(Summary.GlobalAccuracy);">@Summary.GlobalAccuracy.ToString("F0")</td>
+                        <td class="mono-cell" style="color:@ScoreColor(Summary.GlobalConsistency);">@Summary.GlobalConsistency.ToString("F0")</td>
+                        <td class="mono-cell" style="color:@ScoreColor(Summary.GlobalCommunication);">@Summary.GlobalCommunication.ToString("F0")</td>
+                        <td class="mono-cell" style="color:@ScoreColor(Summary.GlobalMatchHandling);">@Summary.GlobalMatchHandling.ToString("F0")</td>
+                        <td>
+                            <span class="rating-pill" style="color:@ScoreColor(Summary.GlobalOverall);border-color:@ScoreColor(Summary.GlobalOverall);">
+                                @Summary.GlobalOverall.ToString("F0")
+                            </span>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        @* ── Event-by-Event Consensus ── *@
+        <div class="card" style="padding:20px 24px;margin-top:8px;">
+            <div class="section-title">
+                Event-by-Event Consensus
+                <span class="accent-line"></span>
+            </div>
+
+            @foreach (var evt in Summary.EventConsensus.Where(e => e.ReviewCount > 0))
+            {
+                <div class="consensus-event-card @(ExpandedEvents.Contains(evt.EventId) ? "expanded" : "")">
+                    <div class="consensus-event-header" @onclick="() => ToggleEvent(evt.EventId)">
+                        <div class="review-event-meta">
+                            <span class="review-event-minute">@evt.MinuteDisplay</span>
+                            <EventBadge Type="evt.EventType" />
+                            <ImpactBadge Impact="evt.Impact" />
+                            <span class="consensus-reviewer-count">@evt.ReviewCount reviews</span>
+                        </div>
+                        <div class="consensus-scores-preview">
+                            <span class="consensus-score-pip" style="color:var(--accent-cyan);" title="Accuracy">@evt.AvgAccuracy.ToString("F0")</span>
+                            <span class="consensus-score-pip" style="color:var(--accent-lime);" title="Consistency">@evt.AvgConsistency.ToString("F0")</span>
+                            <span class="consensus-score-pip" style="color:var(--accent-orange);" title="Communication">@evt.AvgCommunication.ToString("F0")</span>
+                            <span class="consensus-score-pip" style="color:var(--accent-magenta);" title="Match Handling">@evt.AvgMatchHandling.ToString("F0")</span>
+                            <span class="consensus-overall" style="color:@ScoreColor(evt.OverallConsensus);">@evt.OverallConsensus.ToString("F0")</span>
+                            <span class="@evt.AgreementClass">@evt.AgreementLevel</span>
+                        </div>
+                    </div>
+
+                    <div class="consensus-event-desc">@evt.Description</div>
+
+                    @if (ExpandedEvents.Contains(evt.EventId))
+                    {
+                        <div class="consensus-detail-panel">
+                            @* Score bars *@
+                            <div class="consensus-bar-group">
+                                <div class="consensus-bar-row">
+                                    <span class="consensus-bar-label" style="color:var(--accent-cyan);">Accuracy</span>
+                                    <div class="consensus-bar-track">
+                                        <div class="consensus-bar-fill" style="width:@(evt.AvgAccuracy)%;background:var(--accent-cyan);"></div>
+                                    </div>
+                                    <span class="consensus-bar-value">@evt.AvgAccuracy.ToString("F0")</span>
+                                    <span class="consensus-bar-spread" title="Standard deviation">σ @evt.AccuracySpread.ToString("F0")</span>
+                                </div>
+                                <div class="consensus-bar-row">
+                                    <span class="consensus-bar-label" style="color:var(--accent-lime);">Consistency</span>
+                                    <div class="consensus-bar-track">
+                                        <div class="consensus-bar-fill" style="width:@(evt.AvgConsistency)%;background:var(--accent-lime);"></div>
+                                    </div>
+                                    <span class="consensus-bar-value">@evt.AvgConsistency.ToString("F0")</span>
+                                    <span class="consensus-bar-spread">σ @evt.ConsistencySpread.ToString("F0")</span>
+                                </div>
+                                <div class="consensus-bar-row">
+                                    <span class="consensus-bar-label" style="color:var(--accent-orange);">Communication</span>
+                                    <div class="consensus-bar-track">
+                                        <div class="consensus-bar-fill" style="width:@(evt.AvgCommunication)%;background:var(--accent-orange);"></div>
+                                    </div>
+                                    <span class="consensus-bar-value">@evt.AvgCommunication.ToString("F0")</span>
+                                    <span class="consensus-bar-spread">σ @evt.CommunicationSpread.ToString("F0")</span>
+                                </div>
+                                <div class="consensus-bar-row">
+                                    <span class="consensus-bar-label" style="color:var(--accent-magenta);">Match Handling</span>
+                                    <div class="consensus-bar-track">
+                                        <div class="consensus-bar-fill" style="width:@(evt.AvgMatchHandling)%;background:var(--accent-magenta);"></div>
+                                    </div>
+                                    <span class="consensus-bar-value">@evt.AvgMatchHandling.ToString("F0")</span>
+                                    <span class="consensus-bar-spread">σ @evt.MatchHandlingSpread.ToString("F0")</span>
+                                </div>
+                            </div>
+
+                            @* Individual reviewer scores *@
+                            <div class="consensus-individual-scores">
+                                <div class="consensus-individual-header">
+                                    <span style="flex:1;">Reviewer</span>
+                                    <span style="width:55px;text-align:center;color:var(--accent-cyan);font-size:.7rem;">ACC</span>
+                                    <span style="width:55px;text-align:center;color:var(--accent-lime);font-size:.7rem;">CON</span>
+                                    <span style="width:55px;text-align:center;color:var(--accent-orange);font-size:.7rem;">COM</span>
+                                    <span style="width:55px;text-align:center;color:var(--accent-magenta);font-size:.7rem;">MH</span>
+                                    <span style="width:50px;text-align:center;font-size:.7rem;">AVG</span>
+                                </div>
+                                @foreach (var review in evt.Reviews)
+                                {
+                                    <div class="consensus-individual-row">
+                                        <span class="consensus-reviewer-name">@review.ReviewerName</span>
+                                        <span class="consensus-ind-score" style="width:55px;color:@ScoreColor(review.AccuracyScore);">@review.AccuracyScore</span>
+                                        <span class="consensus-ind-score" style="width:55px;color:@ScoreColor(review.ConsistencyScore);">@review.ConsistencyScore</span>
+                                        <span class="consensus-ind-score" style="width:55px;color:@ScoreColor(review.CommunicationScore);">@review.CommunicationScore</span>
+                                        <span class="consensus-ind-score" style="width:55px;color:@ScoreColor(review.MatchHandlingScore);">@review.MatchHandlingScore</span>
+                                        <span class="consensus-ind-score" style="width:50px;font-weight:600;color:@ScoreColor(review.OverallScore);">@review.OverallScore.ToString("F0")</span>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(review.Comment))
+                                    {
+                                        <div class="consensus-comment">
+                                            <em>"@review.Comment"</em>
+                                            <span class="consensus-comment-author">— @review.ReviewerName</span>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            @* Events with no reviews *@
+            @{
+                var unreviewedEvents = Summary.EventConsensus.Where(e => e.ReviewCount == 0).ToList();
+            }
+            @if (unreviewedEvents.Count > 0)
+            {
+                <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border-subtle);">
+                    <div style="font-size:.78rem;color:var(--text-dim);margin-bottom:8px;">
+                        @unreviewedEvents.Count events with no reviews
+                    </div>
+                    @foreach (var evt in unreviewedEvents)
+                    {
+                        <div class="consensus-event-card unreviewed">
+                            <div class="review-event-meta">
+                                <span class="review-event-minute">@evt.MinuteDisplay</span>
+                                <EventBadge Type="evt.EventType" />
+                                <span style="font-size:.82rem;color:var(--text-dim);">@evt.Description</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int ReportId { get; set; }
+
+    private MatchOfficialReport? Report;
+    private MatchReviewSummary? Summary;
+    private HashSet<int> ExpandedEvents = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Report = await ReportService.GetByIdAsync(ReportId);
+        if (Report != null)
+            Summary = await ReviewService.GetMatchSummaryAsync(ReportId);
+    }
+
+    private void ToggleEvent(int eventId)
+    {
+        if (!ExpandedEvents.Remove(eventId))
+            ExpandedEvents.Add(eventId);
+    }
+
+    private static string ScoreColor(double score) => score switch
+    {
+        >= 80 => "var(--accent-lime)",
+        >= 65 => "var(--accent-cyan)",
+        >= 50 => "var(--accent-orange)",
+        _ => "var(--accent-red)"
+    };
+}

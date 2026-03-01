@@ -1,0 +1,49 @@
+@* A single official assignment slot — shows assigned referee or empty placeholder *@
+
+<div class="official-slot @(IsAssigned ? "assigned" : "empty") @(IsHighlighted ? "highlighted" : "")">
+    <div class="official-slot-header">
+        <span class="official-slot-role">@Role.ShortLabel()</span>
+        <span class="official-slot-role-full">@Role.Label()</span>
+    </div>
+
+    @if (Assignment != null)
+    {
+        <div class="official-slot-body">
+            <AvatarPlaceholder Initials="@Assignment.RefereeInitials" Size="40" FontSize=".85rem" />
+            <div class="official-slot-info">
+                <div class="official-slot-name">@Assignment.RefereeName</div>
+                <div class="official-slot-meta">
+                    <span>@Assignment.RefereeCode</span>
+                    <TierBadge Tier="Assignment.RefereeTier" />
+                </div>
+            </div>
+            <button class="official-slot-remove" title="Remove assignment" @onclick="HandleRemove" @onclick:stopPropagation="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+    }
+    else
+    {
+        <button class="official-slot-assign-btn" @onclick="HandleAssign">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+            <span>Assign Official</span>
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public OfficialRole Role { get; set; }
+    [Parameter] public OfficialAssignment? Assignment { get; set; }
+    [Parameter] public bool IsHighlighted { get; set; }
+    [Parameter] public EventCallback OnAssignClicked { get; set; }
+    [Parameter] public EventCallback OnRemoveClicked { get; set; }
+
+    private bool IsAssigned => Assignment != null;
+
+    private async Task HandleAssign() => await OnAssignClicked.InvokeAsync();
+    private async Task HandleRemove() => await OnRemoveClicked.InvokeAsync();
+}

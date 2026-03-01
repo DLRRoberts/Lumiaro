@@ -1,0 +1,702 @@
+﻿@page "/reports/new"
+@page "/reports/edit/{Id:int}"
+@inject MatchReportService ReportService
+@inject FixtureService FixtureService
+@inject RefereeService RefereeService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+@if (Model == null)
+{
+    <div style="text-align:center;padding:80px 32px;">
+        <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;">Report Not Found</h1>
+        <p style="color:var(--text-muted);margin-top:8px;">Could not load the report for editing.</p>
+        <a href="/reports" class="btn btn-primary" style="margin-top:20px;">Back to Reports</a>
+    </div>
+}
+else
+{
+    <PageTitle>Lumiaro — @(IsEdit ? "Edit" : "New") Match Report</PageTitle>
+
+    <a href="@(IsEdit ? $"/reports/{Id}" : "/reports")" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+        @(IsEdit ? "Back to Report" : "Match Reports")
+    </a>
+
+    @* ── Header context ── *@
+    @if (ContextFixture != null && ContextReferee != null)
+    {
+        <div class="card" style="padding:18px 22px;margin:16px 0 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <AvatarPlaceholder Initials="@ContextReferee.Initials" Size="44" FontSize=".9rem" />
+            <div style="flex:1;min-width:0;">
+                <div style="font-weight:600;font-size:1rem;">@ContextReferee.FullName</div>
+                <div style="font-size:.78rem;color:var(--text-dim);display:flex;gap:10px;align-items:center;margin-top:2px;">
+                    <span>@ContextReferee.RefCode</span>
+                    <span>@ContextRole.Label()</span>
+                    <TierBadge Tier="ContextReferee.Tier" />
+                </div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-weight:500;font-size:.92rem;">@ContextFixture.MatchTitle</div>
+                <div style="font-size:.75rem;color:var(--text-dim);">@ContextFixture.DateDisplay — @ContextFixture.DivisionName</div>
+            </div>
+        </div>
+    }
+
+    @* ── Tab Navigation ── *@
+    <div class="profile-tabs" style="margin-bottom:20px;">
+        <button class='profile-tab @(FormTab == "sections" ? "active" : "")' @onclick='() => SetFormTab("sections")'>Performance Sections</button>
+        <button class='profile-tab @(FormTab == "events" ? "active" : "")' @onclick='() => SetFormTab("events")'>
+            Events
+            @if (CurrentEvents.Count > 0)
+            {
+                <span class="nav-badge" style="margin-left:6px;">@CurrentEvents.Count</span>
+            }
+        </button>
+        <button class='profile-tab @(FormTab == "video" ? "active" : "")' @onclick='() => SetFormTab("video")'>
+            Video Clips
+            @if (CurrentClips.Count > 0)
+            {
+                <span class="nav-badge" style="margin-left:6px;">@CurrentClips.Count</span>
+            }
+        </button>
+        <button class='profile-tab @(FormTab == "conclusion" ? "active" : "")' @onclick='() => SetFormTab("conclusion")'>Conclusion & Overall</button>
+    </div>
+
+    @* ══════════════════════════════════════════════
+       TAB: Performance Sections
+       ══════════════════════════════════════════════ *@
+    @if (FormTab == "sections")
+    {
+        <div class="report-form-sections">
+            <ReportSectionInput Title="Performance Summary" Description="Overall performance assessment"
+                Rating="Model.SummaryRating" RatingChanged="v => Model.SummaryRating = v"
+                Narrative="Model.SummaryNarrative" NarrativeChanged="v => Model.SummaryNarrative = v"
+                KeyObservations="Model.SummaryKeyObs" KeyObservationsChanged="v => Model.SummaryKeyObs = v"
+                AreasOfConcern="Model.SummaryConcerns" AreasOfConcernChanged="v => Model.SummaryConcerns = v" />
+
+            <ReportSectionInput Title="Decision Making" Description="Accuracy and quality of key decisions"
+                Rating="Model.DecisionRating" RatingChanged="v => Model.DecisionRating = v"
+                Narrative="Model.DecisionNarrative" NarrativeChanged="v => Model.DecisionNarrative = v"
+                KeyObservations="Model.DecisionKeyObs" KeyObservationsChanged="v => Model.DecisionKeyObs = v"
+                AreasOfConcern="Model.DecisionConcerns" AreasOfConcernChanged="v => Model.DecisionConcerns = v" />
+
+            <ReportSectionInput Title="Positioning & Movement" Description="Spatial awareness and sight-line management"
+                Rating="Model.PositioningRating" RatingChanged="v => Model.PositioningRating = v"
+                Narrative="Model.PositioningNarrative" NarrativeChanged="v => Model.PositioningNarrative = v"
+                KeyObservations="Model.PositioningKeyObs" KeyObservationsChanged="v => Model.PositioningKeyObs = v"
+                AreasOfConcern="Model.PositioningConcerns" AreasOfConcernChanged="v => Model.PositioningConcerns = v" />
+
+            <ReportSectionInput Title="Communication" Description="Verbal and non-verbal interaction quality"
+                Rating="Model.CommunicationRating" RatingChanged="v => Model.CommunicationRating = v"
+                Narrative="Model.CommunicationNarrative" NarrativeChanged="v => Model.CommunicationNarrative = v"
+                KeyObservations="Model.CommunicationKeyObs" KeyObservationsChanged="v => Model.CommunicationKeyObs = v"
+                AreasOfConcern="Model.CommunicationConcerns" AreasOfConcernChanged="v => Model.CommunicationConcerns = v" />
+
+            <ReportSectionInput Title="Management Style" Description="Game tempo control and authority"
+                Rating="Model.ManagementRating" RatingChanged="v => Model.ManagementRating = v"
+                Narrative="Model.ManagementNarrative" NarrativeChanged="v => Model.ManagementNarrative = v"
+                KeyObservations="Model.ManagementKeyObs" KeyObservationsChanged="v => Model.ManagementKeyObs = v"
+                AreasOfConcern="Model.ManagementConcerns" AreasOfConcernChanged="v => Model.ManagementConcerns = v" />
+
+            <ReportSectionInput Title="Fitness & Work Rate" Description="Physical capacity and endurance"
+                Rating="Model.FitnessRating" RatingChanged="v => Model.FitnessRating = v"
+                Narrative="Model.FitnessNarrative" NarrativeChanged="v => Model.FitnessNarrative = v"
+                KeyObservations="Model.FitnessKeyObs" KeyObservationsChanged="v => Model.FitnessKeyObs = v"
+                AreasOfConcern="Model.FitnessConcerns" AreasOfConcernChanged="v => Model.FitnessConcerns = v" />
+        </div>
+    }
+
+    @* ══════════════════════════════════════════════
+       TAB: Events
+       ══════════════════════════════════════════════ *@
+    @if (FormTab == "events")
+    {
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">@L["reports.form.matchEvents"]</div>
+                <div class="assessment-section-subtitle">@L["reports.form.matchEventsDesc"]</div>
+            </div>
+
+            @* Add event form *@
+            <div class="event-add-form">
+                <div class="event-add-row">
+                    <div class="form-group" style="width:80px;margin-bottom:0;">
+                        <label class="form-label" style="font-size:.68rem;">Minute</label>
+                        <input type="number" class="form-input" min="0" max="120" @bind="NewEvent.Minute" style="text-align:center;" />
+                    </div>
+                    <div class="form-group" style="width:60px;margin-bottom:0;">
+                        <label class="form-label" style="font-size:.68rem;">Added</label>
+                        <input type="number" class="form-input" min="0" max="15" @bind="NewEventAddedTime" placeholder="+" style="text-align:center;" />
+                    </div>
+                    <div class="form-group" style="width:140px;margin-bottom:0;">
+                        <label class="form-label" style="font-size:.68rem;">Event Type</label>
+                        <select class="form-select" @bind="NewEvent.EventType">
+                            @foreach (EventType et in Enum.GetValues<EventType>())
+                            {
+                                <option value="@et">@et</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group" style="width:110px;margin-bottom:0;">
+                        <label class="form-label" style="font-size:.68rem;">Impact</label>
+                        <select class="form-select" @bind="NewEvent.Impact">
+                            @foreach (EventImpact imp in Enum.GetValues<EventImpact>())
+                            {
+                                <option value="@imp">@imp</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group" style="width:80px;margin-bottom:0;">
+                        <label class="form-label" style="font-size:.68rem;">Team</label>
+                        <select class="form-select" @bind="NewEventTeam">
+                            <option value="">—</option>
+                            <option value="Home">Home</option>
+                            <option value="Away">Away</option>
+                            <option value="Both">Both</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:0;padding-bottom:0;">
+                        <label class="form-label" style="font-size:.68rem;display:flex;align-items:center;gap:4px;cursor:pointer;padding-bottom:6px;">
+                            <input type="checkbox" @bind="NewEvent.OfficialInvolved" style="accent-color:var(--accent-cyan);" />
+                            Official
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group" style="margin:10px 0 0;">
+                    <textarea class="form-input" rows="2" placeholder="@L["reports.form.phDescription"]"
+                              @bind="NewEvent.Description" style="font-size:.82rem;"></textarea>
+                </div>
+                @if (NewEvent.OfficialInvolved)
+                {
+                    <div class="form-group" style="margin:8px 0 0;">
+                        <textarea class="form-input" rows="2" placeholder="@L["reports.form.phResponse"]"
+                                  @bind="NewEvent.OfficialResponse" style="font-size:.82rem;border-color:rgba(0,229,255,0.12);"></textarea>
+                    </div>
+                }
+                <div style="margin-top:10px;">
+                    <button class="btn btn-primary btn-sm" @onclick="AddEvent">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add Event
+                    </button>
+                </div>
+            </div>
+
+            @* Event list *@
+            @if (CurrentEvents.Count > 0)
+            {
+                <div class="event-timeline" style="margin-top:20px;">
+                    @foreach (var evt in CurrentEvents)
+                    {
+                        <div class="event-timeline-item impact-border-@evt.Impact.ToString().ToLower()">
+                            <div class="event-timeline-minute">@evt.MinuteDisplay</div>
+                            <div class="event-timeline-body" style="flex:1;">
+                                <div class="event-timeline-header">
+                                    <EventBadge Type="evt.EventType" />
+                                    <ImpactBadge Impact="evt.Impact" />
+                                    @if (evt.OfficialInvolved)
+                                    {
+                                        <span class="event-official-tag">Official</span>
+                                    }
+                                    <button class="btn btn-ghost btn-icon" style="margin-left:auto;color:var(--accent-red);padding:2px;"
+                                            title="Remove event" @onclick="() => RemoveEvent(evt.Id)">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                    </button>
+                                </div>
+                                <div class="event-timeline-desc">@evt.Description</div>
+                                @if (!string.IsNullOrWhiteSpace(evt.OfficialResponse))
+                                {
+                                    <div class="event-timeline-response">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" width="11" height="11"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                        @evt.OfficialResponse
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            @* ── Event Data Upload ── *@
+            <div class="event-upload-section">
+                <div class="section-title" style="margin-top:28px;">
+                    Upload Event Data
+                    <span class="accent-line"></span>
+                </div>
+                <div class="upload-dropzone" id="eventDataDropzone">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28" style="opacity:.5;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <div style="font-size:.85rem;color:var(--text-muted);margin-top:8px;">
+                        Drag &amp; drop a CSV or JSON event file, or
+                        <label class="upload-browse-label">
+                            browse
+                            <InputFile OnChange="OnEventFileSelected" accept=".csv,.json,.xlsx" style="display:none;" />
+                        </label>
+                    </div>
+                    <div style="font-size:.68rem;color:var(--text-dim);margin-top:4px;">Accepts CSV, JSON, or XLSX with columns: Minute, Type, Description, Impact</div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(EventUploadMessage))
+                {
+                    <div style="font-size:.78rem;margin-top:8px;color:@(EventUploadSuccess ? "var(--accent-lime)" : "var(--accent-orange)");">
+                        @EventUploadMessage
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    @* ══════════════════════════════════════════════
+       TAB: Video Clips
+       ══════════════════════════════════════════════ *@
+    @if (FormTab == "video")
+    {
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">@L["reports.form.videoEvidence"]</div>
+                <div class="assessment-section-subtitle">Upload video clips to illustrate key moments and decisions.</div>
+            </div>
+
+            @* Upload area *@
+            <div class="video-upload-form">
+                <div class="upload-dropzone" id="videoDropzone" style="padding:28px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36" style="opacity:.4;">
+                        <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                    </svg>
+                    <div style="font-size:.9rem;color:var(--text-muted);margin-top:10px;">
+                        Drag &amp; drop video files, or
+                        <label class="upload-browse-label">
+                            browse
+                            <InputFile OnChange="OnVideoFileSelected" accept="video/*,.mp4,.avi,.mov,.mkv" multiple style="display:none;" />
+                        </label>
+                    </div>
+                    <div style="font-size:.68rem;color:var(--text-dim);margin-top:4px;">MP4, AVI, MOV, MKV — max 500MB per file</div>
+                </div>
+            </div>
+
+            @* New clip metadata form (shown after file selected) *@
+            @if (ShowClipForm)
+            {
+                <div class="video-clip-form" style="margin-top:16px;">
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                        <div class="form-group" style="flex:1;min-width:200px;margin-bottom:8px;">
+                            <label class="form-label" style="font-size:.72rem;">Clip Title</label>
+                            <input type="text" class="form-input" placeholder="e.g. 55' Penalty Appeal — Key Incident" @bind="NewClip.Title" />
+                        </div>
+                        <div class="form-group" style="width:100px;margin-bottom:8px;">
+                            <label class="form-label" style="font-size:.72rem;">Match Min</label>
+                            <input type="number" class="form-input" min="0" max="120" @bind="NewClipMinute" placeholder="—" style="text-align:center;" />
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <label class="form-label" style="font-size:.72rem;">Description</label>
+                        <textarea class="form-input" rows="2" placeholder="@L["reports.form.phClipDescription"]"
+                                  @bind="NewClip.Description" style="font-size:.82rem;"></textarea>
+                    </div>
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <label class="form-label" style="font-size:.72rem;">Link to Event</label>
+                        <select class="form-select" @bind="NewClipLinkedEvent">
+                            <option value="">— No linked event —</option>
+                            @foreach (var evt in CurrentEvents)
+                            {
+                                <option value="@evt.MinuteDisplay — @evt.EventTypeLabel: @evt.Description">@evt.MinuteDisplay @evt.EventTypeLabel — @(evt.Description.Length > 60 ? evt.Description[..60] + "…" : evt.Description)</option>
+                            }
+                        </select>
+                    </div>
+                    <div style="font-size:.75rem;color:var(--text-dim);margin-bottom:10px;">
+                        File: <span style="color:var(--text-muted);">@NewClip.FileName</span> · @NewClip.FileSizeDisplay
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-primary btn-sm" @onclick="ConfirmClipUpload">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Add Clip
+                        </button>
+                        <button class="btn btn-secondary btn-sm" @onclick="CancelClipUpload">@L["common.cancel"]</button>
+                    </div>
+                </div>
+            }
+
+            @* Existing clips *@
+            @if (CurrentClips.Count > 0)
+            {
+                <div class="video-clips-grid" style="margin-top:20px;">
+                    @foreach (var clip in CurrentClips)
+                    {
+                        <div class="video-clip-card">
+                            <div class="video-clip-thumbnail">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            </div>
+                            <div class="video-clip-info">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <div class="video-clip-title" style="flex:1;">@clip.Title</div>
+                                    <button class="btn btn-ghost btn-icon" style="color:var(--accent-red);padding:2px;"
+                                            title="Remove clip" @onclick="() => RemoveClip(clip.Id)">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                    </button>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(clip.Description))
+                                {
+                                    <div class="video-clip-desc">@clip.Description</div>
+                                }
+                                <div class="video-clip-meta">
+                                    <span>@clip.FileName</span>
+                                    <span>@clip.FileSizeDisplay</span>
+                                    @if (clip.MatchMinute.HasValue)
+                                    {
+                                        <span style="color:var(--accent-cyan);">@clip.MinuteDisplay</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @* ══════════════════════════════════════════════
+       TAB: Conclusion & Overall
+       ══════════════════════════════════════════════ *@
+    @if (FormTab == "conclusion")
+    {
+        <div class="card" style="padding:24px;">
+            <div class="assessment-section-header">
+                <div class="assessment-section-title">@L["reports.form.conclusionTitle"]</div>
+            </div>
+
+            <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px;">
+                <div class="form-group" style="flex:1;min-width:200px;">
+                    <label class="form-label">@L["reports.form.authorName"]</label>
+                    <input type="text" class="form-input" placeholder="@L["reports.form.phAuthorName"]" @bind="Model.AuthorName" />
+                </div>
+                <div class="form-group" style="width:100px;">
+                    <label class="form-label">Home Score</label>
+                    <input type="number" class="form-input" min="0" @bind="Model.HomeScore" style="text-align:center;" />
+                </div>
+                <div class="form-group" style="width:100px;">
+                    <label class="form-label">Away Score</label>
+                    <input type="number" class="form-input" min="0" @bind="Model.AwayScore" style="text-align:center;" />
+                </div>
+            </div>
+
+            @* Overall rating *@
+            <div class="report-overall-rating-block">
+                <div style="font-weight:600;font-size:.9rem;">@L["reports.form.overallRating"]</div>
+                <div style="display:flex;align-items:center;gap:14px;">
+                    <input type="range" min="0" max="10" step="0.1"
+                           value="@Model.OverallRating" @oninput="OnOverallRatingInput"
+                           style="width:200px;accent-color:var(--accent-cyan);" />
+                    <span class="assessment-overall-score-display" style="color:@UiHelpers.ScoreColor(Model.OverallRating);">
+                        @Model.OverallRating.ToString("F1")
+                    </span>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top:20px;">
+                <label class="form-label">@L["reports.form.conclusion"]</label>
+                <textarea class="form-input" rows="5" placeholder="@L["reports.form.phConclusion"]"
+                          @bind="Model.Conclusion"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">@L["reports.form.recommendations"]</label>
+                <textarea class="form-input" rows="4" placeholder="@L["reports.form.phRecommendations"]"
+                          @bind="Model.Recommendations"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label" style="color:var(--accent-red);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" style="vertical-align:-1px;margin-right:4px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Confidential Notes
+                </label>
+                <textarea class="form-input" rows="3" placeholder="@L["reports.form.phConfidentialNotes"]"
+                          @bind="Model.ConfidentialNotes"
+                          style="border-color:rgba(255,23,68,0.15);"></textarea>
+            </div>
+        </div>
+    }
+
+    @* ── Save / Cancel bar ── *@
+    <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px;padding-bottom:40px;">
+        <button class="btn btn-primary" @onclick="SaveReport">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            @(IsEdit ? "Update Report" : "Save Report")
+        </button>
+        <button class="btn btn-secondary" @onclick="Cancel">@L["common.cancel"]</button>
+    </div>
+
+    @if (ShowSaveToast)
+    {
+        <div class="assignment-toast success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 11l3 3L22 4"/></svg>
+            Report saved successfully
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "fixtureId")] public int? QFixtureId { get; set; }
+    [SupplyParameterFromQuery(Name = "refereeId")] public int? QRefereeId { get; set; }
+    [SupplyParameterFromQuery(Name = "role")] public int? QRole { get; set; }
+
+    private bool IsEdit => Id > 0;
+    private MatchReportFormModel? Model;
+    private Fixture? ContextFixture;
+    private Referee? ContextReferee;
+    private OfficialRole ContextRole;
+
+    private string FormTab = "sections";
+    private void SetFormTab(string tab) => FormTab = tab;
+
+    private bool ShowSaveToast;
+    private System.Threading.Timer? _toastTimer;
+
+    // Event management
+    private List<ReportEvent> CurrentEvents = new();
+    private ReportEvent NewEvent = new();
+    private int? NewEventAddedTime;
+    private string NewEventTeam = "";
+
+    // Video clip management
+    private List<VideoClip> CurrentClips = new();
+    private VideoClip NewClip = new();
+    private int? NewClipMinute;
+    private string NewClipLinkedEvent = "";
+    private bool ShowClipForm;
+
+    // Event data upload
+    private string? EventUploadMessage;
+    private bool EventUploadSuccess;
+
+    // ── Current report ID for event/clip management ──
+    private int CurrentReportId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsEdit)
+        {
+            var existing = await ReportService.GetByIdAsync(Id);
+            if (existing != null)
+            {
+                Model = MatchReportFormModel.FromReport(existing);
+                ContextFixture = await FixtureService.GetFixtureByIdAsync(existing.FixtureId);
+                ContextReferee = await RefereeService.GetRefereeByIdAsync(existing.RefereeId);
+                ContextRole = existing.OfficialRole;
+                CurrentEvents = existing.Events;
+                CurrentClips = existing.VideoClips;
+                CurrentReportId = existing.Id;
+            }
+        }
+        else if (QFixtureId.HasValue && QRefereeId.HasValue)
+        {
+            ContextFixture = await FixtureService.GetFixtureByIdAsync(QFixtureId.Value);
+            ContextReferee = await RefereeService.GetRefereeByIdAsync(QRefereeId.Value);
+            ContextRole = QRole.HasValue ? (OfficialRole)QRole.Value : OfficialRole.Referee;
+
+            Model = new MatchReportFormModel
+            {
+                FixtureId = QFixtureId.Value,
+                RefereeId = QRefereeId.Value,
+                OfficialRole = ContextRole,
+                AuthorName = "Dominic Sherwin" // default author
+            };
+        }
+    }
+
+    private void OnOverallRatingInput(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out var v) && Model != null)
+            Model.OverallRating = v;
+    }
+
+    // ── Event CRUD (local list, persisted on save) ──
+
+    private void AddEvent()
+    {
+        if (string.IsNullOrWhiteSpace(NewEvent.Description)) return;
+
+        NewEvent.AddedTime = NewEventAddedTime > 0 ? NewEventAddedTime : null;
+        NewEvent.Teams = string.IsNullOrEmpty(NewEventTeam) ? null : NewEventTeam;
+        NewEvent.Id = CurrentEvents.Count + 1;
+        CurrentEvents.Add(NewEvent);
+        CurrentEvents = CurrentEvents.OrderBy(e => e.Minute).ThenBy(e => e.AddedTime ?? 0).ToList();
+
+        NewEvent = new ReportEvent();
+        NewEventAddedTime = null;
+        NewEventTeam = "";
+    }
+
+    private void RemoveEvent(int eventId)
+    {
+        CurrentEvents.RemoveAll(e => e.Id == eventId);
+    }
+
+    // ── Event Data File Upload ──
+
+    private async Task OnEventFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        try
+        {
+            // Read the file content (simulated parsing)
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var reader = new StreamReader(stream);
+            var content = await reader.ReadToEndAsync();
+
+            var lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            var imported = 0;
+
+            // Simple CSV parsing: Minute,Type,Description,Impact
+            foreach (var line in lines.Skip(1)) // skip header
+            {
+                var parts = line.Split(',');
+                if (parts.Length >= 3 && int.TryParse(parts[0].Trim(), out var minute))
+                {
+                    var evt = new ReportEvent
+                    {
+                        Minute = minute,
+                        EventType = ParseEventType(parts[1].Trim()),
+                        Description = parts[2].Trim().Trim('"'),
+                        Impact = parts.Length >= 4 ? ParseImpact(parts[3].Trim()) : EventImpact.Medium,
+                    };
+
+                    if (CurrentReportId > 0)
+                    {
+                        // Local list ops for edit mode too — will persist on save
+                        evt.Id = CurrentEvents.Count + 100;
+                        CurrentEvents.Add(evt);
+                    }
+                    else
+                    {
+                        evt.Id = CurrentEvents.Count + 100;
+                        CurrentEvents.Add(evt);
+                    }
+                    imported++;
+                }
+            }
+
+            CurrentEvents = CurrentEvents.OrderBy(e => e.Minute).ThenBy(e => e.AddedTime ?? 0).ToList();
+
+            EventUploadMessage = $"Successfully imported {imported} events from {file.Name}";
+            EventUploadSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            EventUploadMessage = $"Error reading file: {ex.Message}";
+            EventUploadSuccess = false;
+        }
+    }
+
+    private static EventType ParseEventType(string s) => s.ToLowerInvariant() switch
+    {
+        "goal" => EventType.Goal,
+        "foul" => EventType.Foul,
+        "yellow" or "yellowcard" or "yellow card" => EventType.YellowCard,
+        "red" or "redcard" or "red card" => EventType.RedCard,
+        "penalty" => EventType.Penalty,
+        "offside" => EventType.Offside,
+        "var" or "varreview" or "var review" => EventType.VarReview,
+        "substitution" or "sub" => EventType.Substitution,
+        "injury" => EventType.Injury,
+        "stoppage" => EventType.Stoppage,
+        _ => EventType.Other
+    };
+
+    private static EventImpact ParseImpact(string s) => s.ToLowerInvariant() switch
+    {
+        "low" => EventImpact.Low,
+        "medium" => EventImpact.Medium,
+        "high" => EventImpact.High,
+        "critical" => EventImpact.Critical,
+        _ => EventImpact.Medium
+    };
+
+    // ── Video Clip Upload ──
+
+    private Task OnVideoFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return Task.CompletedTask;
+
+        NewClip = new VideoClip
+        {
+            FileName = file.Name,
+            FileSize = file.Size,
+            ContentType = file.ContentType ?? "video/mp4",
+            Title = Path.GetFileNameWithoutExtension(file.Name).Replace('_', ' ').Replace('-', ' '),
+        };
+        NewClipMinute = null;
+        NewClipLinkedEvent = "";
+        ShowClipForm = true;
+
+        return Task.CompletedTask;
+    }
+
+    private void ConfirmClipUpload()
+    {
+        NewClip.MatchMinute = NewClipMinute > 0 ? NewClipMinute : null;
+        NewClip.LinkedEventDescription = string.IsNullOrEmpty(NewClipLinkedEvent) ? null : NewClipLinkedEvent;
+        NewClip.Id = CurrentClips.Count + 1;
+        CurrentClips.Add(NewClip);
+
+        ShowClipForm = false;
+        NewClip = new VideoClip();
+    }
+
+    private void CancelClipUpload()
+    {
+        ShowClipForm = false;
+        NewClip = new VideoClip();
+    }
+
+    private void RemoveClip(int clipId)
+    {
+        CurrentClips.RemoveAll(c => c.Id == clipId);
+    }
+
+    // ── Save ──
+
+    private async Task SaveReport()
+    {
+        if (Model == null || ContextFixture == null || ContextReferee == null) return;
+
+        var report = Model.ToReport();
+        report.Events = CurrentEvents;
+        report.VideoClips = CurrentClips;
+
+        if (IsEdit)
+        {
+            await ReportService.UpdateAsync(report);
+        }
+        else
+        {
+            report = await ReportService.CreateAsync(report, ContextFixture, ContextReferee);
+            CurrentReportId = report.Id;
+
+            ShowSaveToast = true;
+            _toastTimer?.Dispose();
+            _toastTimer = new System.Threading.Timer(_ =>
+            {
+                InvokeAsync(() => Nav.NavigateTo($"/reports/{report.Id}"));
+            }, null, 1500, System.Threading.Timeout.Infinite);
+            return;
+        }
+
+        ShowSaveToast = true;
+        _toastTimer?.Dispose();
+        _toastTimer = new System.Threading.Timer(_ =>
+        {
+            ShowSaveToast = false;
+            InvokeAsync(StateHasChanged);
+        }, null, 3000, System.Threading.Timeout.Infinite);
+    }
+
+    private void Cancel()
+    {
+        if (IsEdit)
+            Nav.NavigateTo($"/reports/{Id}");
+        else
+            Nav.NavigateTo("/reports");
+    }
+}

@@ -1,0 +1,45 @@
+﻿@using LumiaroAdmin.Data.Models
+var score = getScore();
+<div class="assessment-form-competency">
+    <div class="assessment-form-competency-header">
+        <div>
+            <div style="font-weight:600;font-size:.88rem;">@Title</div>
+            <div style="font-size:.72rem;color:var(--text-dim);">@Description</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+            <input type="range" min="0" max="10" step="0.1"
+                   value="@InitialScore"
+                   @oninput="e => SetScore.InvokeAsync((Model, double.TryParse(e.Value?.ToString(), out var v) ? v : 0))"
+                   style="width:120px;accent-color:var(--accent-cyan);" />
+            <span style="font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;width:36px;text-align:right;color:@UiHelpers.ScoreColor(@InitialScore);">@InitialScore.ToString("F1")
+            </span>
+        </div>
+    </div>
+    <textarea class="form-input" rows="2" placeholder="Notes for @Title..."
+                      value="@InitialNotes"
+                      @oninput="e => SetNotes.InvokeAsync((Model, e.Value?.ToString()))"
+                      style="margin-top:8px;font-size:.82rem;"></textarea>
+</div>
+
+@code{
+    [Parameter]
+    public required AssessmentFormModel Model { get; set; }
+    
+    [Parameter]
+    public string Title { get; set; }
+    
+    [Parameter]
+    public string Description { get; set; }
+
+    [Parameter]
+    public string InitialNotes { get; set; }
+    
+    [Parameter]
+    public EventCallback<(AssessmentFormModel, string)> SetNotes { get; set; }
+    
+    [Parameter]
+    public double InitialScore { get; set; }
+    
+    [Parameter]
+    public EventCallback<(AssessmentFormModel, double)> SetScore { get; set; }
+}

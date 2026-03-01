@@ -1,0 +1,100 @@
+﻿@if (IsOpen)
+{
+    <div class="modal-overlay open" @onclick="Close">
+        <div class="modal" style="max-width:480px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div class="modal-title">@L["settings.title"]</div>
+                <button class="modal-close" @onclick="Close">✕</button>
+            </div>
+            <div class="modal-body" style="padding:24px;">
+
+                @* ── Language selector ── *@
+                <div style="margin-bottom:24px;">
+                    <label class="form-label" style="margin-bottom:8px;display:block;">@L["settings.language"]</label>
+                    <p style="font-size:.78rem;color:var(--text-dim);margin-bottom:12px;">@L["settings.languageDesc"]</p>
+
+                    <div class="language-options">
+                        @foreach (var (code, label, flag) in L.AvailableLanguages)
+                        {
+                            var isActive = code == L.CurrentLanguage;
+                            <button class="language-option @(isActive ? "active" : "")"
+                                    @onclick="() => SelectLanguage(code)">
+                                <span class="language-flag">@flag</span>
+                                <span class="language-label">@label</span>
+                                @if (isActive)
+                                {
+                                    <svg class="language-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>
+                                }
+                            </button>
+                        }
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="Close">@L["settings.close"]</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private async Task SelectLanguage(string code)
+    {
+        await L.SetLanguageAsync(code);
+    }
+
+    private async Task Close() => await OnClose.InvokeAsync();
+}
+
+<style>
+    .language-options {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .language-option {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--surface-raised);
+        color: var(--text-primary);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        font-size: .88rem;
+        text-align: left;
+        width: 100%;
+    }
+
+    .language-option:hover {
+        border-color: var(--accent-cyan);
+        background: rgba(0, 212, 255, 0.04);
+    }
+
+    .language-option.active {
+        border-color: var(--accent-cyan);
+        background: rgba(0, 212, 255, 0.08);
+        box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.2);
+    }
+
+    .language-flag {
+        font-size: 1.4rem;
+        line-height: 1;
+    }
+
+    .language-label {
+        flex: 1;
+        font-weight: 500;
+    }
+
+    .language-check {
+        color: var(--accent-cyan);
+    }
+</style>
