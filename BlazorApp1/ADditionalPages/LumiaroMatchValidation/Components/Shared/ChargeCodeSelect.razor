@@ -1,0 +1,43 @@
+@namespace Lumiaro.MatchValidation.Components.Shared
+@using Lumiaro.MatchValidation.Models
+@using System.Collections.Immutable
+
+<div class="form-group">
+    <label>Charge code</label>
+    <select class="@CssClass"
+            disabled="@(Charges.IsDefaultOrEmpty)"
+            value="@SelectedCode"
+            @onchange="HandleChange">
+        @if (Charges.IsDefaultOrEmpty)
+        {
+            <option value="">— select card type first —</option>
+        }
+        else
+        {
+            <option value="">Select charge code</option>
+            @foreach (var charge in Charges)
+            {
+                <option value="@charge.Code">@charge.Label</option>
+            }
+        }
+    </select>
+</div>
+
+@code {
+    [Parameter] public ImmutableArray<ChargeCode> Charges { get; set; } = ImmutableArray<ChargeCode>.Empty;
+    [Parameter] public ChargeCode? Value { get; set; }
+    [Parameter] public EventCallback<ChargeCode?> ValueChanged { get; set; }
+    [Parameter] public bool HasError { get; set; }
+
+    private string CssClass => HasError ? "ep-chargeCode field-error" : "ep-chargeCode";
+    private string SelectedCode => Value?.Code ?? string.Empty;
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        var code = e.Value?.ToString();
+        var charge = string.IsNullOrEmpty(code)
+            ? null
+            : Charges.FirstOrDefault(c => c.Code == code);
+        await ValueChanged.InvokeAsync(charge);
+    }
+}

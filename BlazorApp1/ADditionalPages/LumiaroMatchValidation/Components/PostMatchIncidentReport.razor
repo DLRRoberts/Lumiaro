@@ -1,0 +1,115 @@
+@namespace Lumiaro.MatchValidation.Components
+@using Lumiaro.MatchValidation.Models
+
+<div class="section-card">
+    <div class="section-title">
+        POST-MATCH — INCIDENT REPORT
+        <span class="sec-badge" style="@MandatoryBadgeStyle">@MandatoryBadgeText</span>
+    </div>
+    <div class="section-divider">Incident descriptions</div>
+
+    <div class="postmatch-inner" id="incidentList">
+        @foreach (var incident in Incidents)
+        {
+            <div class="incident-item @(IsNewlyAdded(incident) ? "new-arrive" : "")" @key="incident.Id">
+                <span class="inc-tag @TagCssClass(incident)">@TagLabel(incident)</span>
+                <div style="flex:1">
+                    <div class="inc-title">
+                        @incident.Title
+                        @if (incident.IsMandatory)
+                        {
+                            <span class="mandatory-flag">Mandatory</span>
+                        }
+                    </div>
+                    @if (incident.IsMandatory && !incident.IsSatisfied)
+                    {
+                        <div class="inc-required">Description required before submission</div>
+                    }
+                    <textarea class="@TextareaCssClass(incident)"
+                              placeholder="@Placeholder(incident)"
+                              value="@incident.Description"
+                              @oninput="e => HandleDescriptionChange(incident.Id, e.Value?.ToString() ?? string.Empty)">
+                    </textarea>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="status-bar">
+        <span>@StatusText</span>
+        <button type="button"
+                class="finalize-btn"
+                disabled="@(!CanFinalize)"
+                @onclick="HandleFinalize">Submit report</button>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<IncidentReportItem> Incidents { get; set; } = Array.Empty<IncidentReportItem>();
+    [Parameter] public int PendingEventCount { get; set; }
+    [Parameter] public bool CanFinalize { get; set; }
+    [Parameter] public EventCallback<(Guid IncidentId, string Description)> OnDescriptionChanged { get; set; }
+    [Parameter] public EventCallback OnFinalize { get; set; }
+
+    // Simple "new row" animation flag — the first render of an incident marks it
+    // as newly added; subsequent re-renders do not. Using a HashSet rather than
+    // a per-item flag because incidents are immutable records.
+    private readonly HashSet<Guid> _seen = new();
+
+    private int MandatoryPending => Incidents.Count(i => i.IsMandatory && !i.IsSatisfied);
+
+    private string MandatoryBadgeText => MandatoryPending == 0
+        ? "All descriptions complete"
+        : $"{MandatoryPending} mandatory pending";
+
+    private string MandatoryBadgeStyle => MandatoryPending == 0
+        ? "background:var(--green-bg);color:var(--green-text);border:1px solid var(--green-border);"
+        : "background:var(--amber-bg);color:var(--amber-text);border:1px solid var(--amber-border);";
+
+    private string StatusText => (PendingEventCount, MandatoryPending) switch
+    {
+        (0, 0)                       => "All events validated · Ready to submit",
+        (> 0, 0)                     => $"{PendingEventCount} event{Plural(PendingEventCount)} pending validation",
+        (0, > 0)                     => $"{MandatoryPending} mandatory description{Plural(MandatoryPending)} pending",
+        (> 0, > 0) => $"{PendingEventCount} event{Plural(PendingEventCount)} pending validation · " +
+                      $"{MandatoryPending} description{Plural(MandatoryPending)} pending"
+    };
+
+    private static string Plural(int n) => n == 1 ? "" : "s";
+
+    private static string TagCssClass(IncidentReportItem i) => i.Category switch
+    {
+        IncidentCategory.RedCard => "red",
+        IncidentCategory.General => "general",
+        _                        => ""
+    };
+
+    private static string TagLabel(IncidentReportItem i) => i.Category switch
+    {
+        IncidentCategory.RedCard => "Red card",
+        IncidentCategory.General => "General",
+        _                        => ""
+    };
+
+    private static string TextareaCssClass(IncidentReportItem i) =>
+        i.IsMandatory ? "inc-textarea mandatory-inc-ta" : "inc-textarea optional";
+
+    private static string Placeholder(IncidentReportItem i) => i.Category switch
+    {
+        IncidentCategory.RedCard => "Describe the incident that led to this red card...",
+        IncidentCategory.General => "Describe any other relevant incidents from the match (optional)...",
+        _                        => ""
+    };
+
+    private bool IsNewlyAdded(IncidentReportItem i)
+    {
+        if (_seen.Contains(i.Id)) return false;
+        _seen.Add(i.Id);
+        return true;
+    }
+
+    private Task HandleDescriptionChange(Guid id, string description) =>
+        OnDescriptionChanged.InvokeAsync((id, description));
+
+    private Task HandleFinalize() => OnFinalize.InvokeAsync();
+}

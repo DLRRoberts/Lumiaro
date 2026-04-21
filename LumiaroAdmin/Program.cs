@@ -44,6 +44,13 @@ builder.Services.AddScoped<InterventionReviewService>();
 builder.Services.AddScoped<AnalyticsService>();
 builder.Services.AddScoped<ILocalizationService, LocalizationService>();
 
+// ── Match Validation ──
+builder.Services.AddScoped<Lumiaro.MatchValidation.Services.IMatchValidationSessionService, Lumiaro.MatchValidation.Services.MatchValidationSessionService>();
+builder.Services.AddSingleton<Lumiaro.MatchValidation.Services.IChargeCodeProvider, Lumiaro.MatchValidation.Services.StaticChargeCodeProvider>();
+builder.Services.AddSingleton<Lumiaro.MatchValidation.Services.IMinuteFormatter, Lumiaro.MatchValidation.Services.MinuteFormatter>();
+builder.Services.AddScoped<Lumiaro.MatchValidation.Services.ISquadProvider, Lumiaro.MatchValidation.Services.StaticSquadProvider>();
+builder.Services.AddScoped<Lumiaro.MatchValidation.Services.IDemoVdcPushFactory, Lumiaro.MatchValidation.Services.DemoVdcPushFactory>();
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

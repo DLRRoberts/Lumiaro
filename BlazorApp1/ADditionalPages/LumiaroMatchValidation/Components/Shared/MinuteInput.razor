@@ -1,0 +1,31 @@
+@namespace Lumiaro.MatchValidation.Components.Shared
+
+<div class="form-group">
+    <label>Minute</label>
+    <input class="@CssClass"
+           type="number"
+           min="1"
+           max="120"
+           value="@(Value?.ToString() ?? string.Empty)"
+           @onchange="HandleChange" />
+</div>
+
+@code {
+    [Parameter] public int? Value { get; set; }
+    [Parameter] public EventCallback<int?> ValueChanged { get; set; }
+    [Parameter] public bool HasError { get; set; }
+
+    private string CssClass => HasError ? "ep-minute field-error" : "ep-minute";
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var parsed))
+        {
+            await ValueChanged.InvokeAsync(parsed);
+        }
+        else
+        {
+            await ValueChanged.InvokeAsync(null);
+        }
+    }
+}

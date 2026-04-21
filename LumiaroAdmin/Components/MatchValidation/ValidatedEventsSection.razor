@@ -1,0 +1,42 @@
+@namespace Lumiaro.MatchValidation.Components
+@using Lumiaro.MatchValidation.Models
+
+<div class="section-card">
+    <div class="section-title">
+        VALIDATED EVENTS
+        <span class="sec-badge" style="background:var(--green-bg);color:var(--green-text);border:1px solid var(--green-border);">
+            @BadgeText
+        </span>
+    </div>
+    <div id="validatedFeed">
+        @foreach (var e in Events)
+        {
+            <EventRow @key="e.Id"
+                      Event="e"
+                      Mode="RowMode.Validated"
+                      HomeTeam="HomeTeam"
+                      AwayTeam="AwayTeam"
+                      HomeSquad="HomeSquad"
+                      AwaySquad="AwaySquad"
+                      Rosters="Rosters"
+                      Phase="Phase" />
+        }
+
+        @if (Events.Count == 0)
+        {
+            <div class="empty-state">No events validated yet.</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<MatchEvent> Events { get; set; } = Array.Empty<MatchEvent>();
+    [Parameter, EditorRequired] public Team HomeTeam { get; set; } = Team.Empty;
+    [Parameter, EditorRequired] public Team AwayTeam { get; set; } = Team.Empty;
+    [Parameter, EditorRequired] public Squad HomeSquad { get; set; } = default!;
+    [Parameter, EditorRequired] public Squad AwaySquad { get; set; } = default!;
+    [Parameter, EditorRequired] public MatchRosterState Rosters { get; set; } = default!;
+    [Parameter, EditorRequired] public MatchPhase Phase { get; set; } = default!;
+
+    private string BadgeText => $"{Events.Count} validated";
+}

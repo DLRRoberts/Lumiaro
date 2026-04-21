@@ -1,0 +1,44 @@
+@namespace Lumiaro.MatchValidation.Components.Shared
+@using Lumiaro.MatchValidation.Models
+@using System.Collections.Immutable
+
+<div class="form-group">
+    <label>Offence</label>
+    <select class="@CssClass"
+            disabled="@(!IsEnabled)"
+            value="@SelectedCode"
+            @onchange="HandleChange">
+        @if (!IsEnabled)
+        {
+            <option value="">— select charge code first —</option>
+        }
+        else
+        {
+            <option value="">Select offence</option>
+            @foreach (var offence in Offences)
+            {
+                <option value="@offence.Code">@offence.Label</option>
+            }
+        }
+    </select>
+</div>
+
+@code {
+    [Parameter] public ImmutableArray<Offence> Offences { get; set; } = ImmutableArray<Offence>.Empty;
+    [Parameter] public bool IsEnabled { get; set; }
+    [Parameter] public Offence? Value { get; set; }
+    [Parameter] public EventCallback<Offence?> ValueChanged { get; set; }
+    [Parameter] public bool HasError { get; set; }
+
+    private string CssClass => HasError ? "ep-offence field-error" : "ep-offence";
+    private string SelectedCode => Value?.Code ?? string.Empty;
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        var code = e.Value?.ToString();
+        var offence = string.IsNullOrEmpty(code)
+            ? null
+            : Offences.FirstOrDefault(o => o.Code == code);
+        await ValueChanged.InvokeAsync(offence);
+    }
+}

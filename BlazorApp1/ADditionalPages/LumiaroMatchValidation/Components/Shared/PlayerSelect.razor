@@ -1,0 +1,55 @@
+@namespace Lumiaro.MatchValidation.Components.Shared
+@using Lumiaro.MatchValidation.Models
+
+<div class="form-group" style="@ContainerStyle">
+    <label>@Label</label>
+    <select class="@CssClass"
+            disabled="@(!HasTeam)"
+            value="@SelectedToken"
+            @onchange="HandleChange">
+        @if (!HasTeam)
+        {
+            <option value="">— select team first —</option>
+        }
+        else
+        {
+            <option value="">Select player</option>
+            @foreach (var group in Groups)
+            {
+                <optgroup label="@group.Label">
+                    @foreach (var player in group.Players)
+                    {
+                        <option value="@player.Token">@player.DisplayLabel</option>
+                    }
+                </optgroup>
+            }
+        }
+    </select>
+</div>
+
+@code {
+    /// <summary>
+    /// A labelled collection of players — e.g. "Starting XI" or "On pitch".
+    /// Parent components build the groups that are appropriate for the
+    /// scenario (pre-match selection vs. substitution off/on).
+    /// </summary>
+    public record PlayerGroup(string Label, IReadOnlyList<Player> Players);
+
+    [Parameter] public string Label { get; set; } = "Player";
+    [Parameter] public string CssClassBase { get; set; } = "ep-player";
+    [Parameter] public string ContainerStyle { get; set; } = "grid-column:1/-1";
+    [Parameter] public IReadOnlyList<PlayerGroup> Groups { get; set; } = Array.Empty<PlayerGroup>();
+    [Parameter] public bool HasTeam { get; set; }
+    [Parameter] public Player? Value { get; set; }
+    [Parameter] public EventCallback<Player?> ValueChanged { get; set; }
+    [Parameter] public bool HasError { get; set; }
+
+    private string CssClass => HasError ? $"{CssClassBase} field-error" : CssClassBase;
+    private string SelectedToken => Value?.Token ?? string.Empty;
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        var player = Player.FromToken(e.Value?.ToString());
+        await ValueChanged.InvokeAsync(player);
+    }
+}

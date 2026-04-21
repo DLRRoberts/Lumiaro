@@ -1,0 +1,52 @@
+@namespace Lumiaro.MatchValidation.Components.EditPanels
+@using Lumiaro.MatchValidation.Components.Shared
+@using Lumiaro.MatchValidation.Models
+
+<div class="edit-panel @(IsOpen ? "open" : "")">
+    <div class="edit-panel-label">Edit card details</div>
+
+    <div class="form-row three">
+        <TeamSelect HomeTeam="HomeTeam"
+                    AwayTeam="AwayTeam"
+                    Value="_team"
+                    ValueChanged="OnTeamChanged"
+                    HasError="_errors.Team" />
+
+        <MinuteInput Value="_minute"
+                     ValueChanged="v => _minute = v"
+                     HasError="_errors.Minute" />
+
+        <CardTypeSelect Value="_cardType"
+                        ValueChanged="OnCardTypeChanged"
+                        HasError="_errors.CardType" />
+    </div>
+
+    <div class="form-row">
+        <PlayerSelect Label="Player"
+                      Groups="_playerGroups"
+                      HasTeam="_team is not null"
+                      Value="_player"
+                      ValueChanged="v => _player = v"
+                      HasError="_errors.Player" />
+    </div>
+
+    <div class="form-row two">
+        <ChargeCodeSelect Charges="_availableCharges"
+                          Value="_charge"
+                          ValueChanged="OnChargeChanged"
+                          HasError="_errors.Charge" />
+
+        <OffenceSelect Offences="_availableOffences"
+                       IsEnabled="_charge?.RequiresOffence == true"
+                       Value="_offence"
+                       ValueChanged="v => _offence = v"
+                       HasError="_errors.Offence" />
+    </div>
+
+    <ChargeSummaryStrip CardType="_cardType" Charge="_charge" Offence="_offence" />
+
+    <div class="edit-actions">
+        <button type="button" class="btn-cancel" @onclick="OnCancel">Cancel</button>
+        <button type="button" class="btn-confirm" @onclick="HandleConfirm">Confirm &amp; Validate</button>
+    </div>
+</div>

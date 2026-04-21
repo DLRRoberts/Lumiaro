@@ -1,0 +1,44 @@
+@namespace Lumiaro.MatchValidation.Components.EditPanels
+@using Lumiaro.MatchValidation.Components.Shared
+@using Lumiaro.MatchValidation.Models
+
+<div class="edit-panel @(IsOpen ? "open" : "")">
+    <div class="edit-panel-label">Edit substitution details</div>
+
+    <div class="form-row two">
+        <TeamSelect HomeTeam="HomeTeam"
+                    AwayTeam="AwayTeam"
+                    Value="_team"
+                    ValueChanged="OnTeamChanged"
+                    HasError="_errors.Team" />
+
+        <MinuteInput Value="_minute"
+                     ValueChanged="v => _minute = v"
+                     HasError="_errors.Minute" />
+    </div>
+
+    <div class="form-row two">
+        <PlayerSelect Label="Player off"
+                      CssClassBase="ep-playerOff"
+                      ContainerStyle=""
+                      Groups="_offGroups"
+                      HasTeam="_team is not null"
+                      Value="_playerOff"
+                      ValueChanged="v => _playerOff = v"
+                      HasError="_errors.PlayerOff" />
+
+        <PlayerSelect Label="Player on"
+                      CssClassBase="ep-playerOn"
+                      ContainerStyle=""
+                      Groups="_onGroups"
+                      HasTeam="_team is not null"
+                      Value="_playerOn"
+                      ValueChanged="v => _playerOn = v"
+                      HasError="_errors.PlayerOn" />
+    </div>
+
+    <div class="edit-actions">
+        <button type="button" class="btn-cancel" @onclick="OnCancel">Cancel</button>
+        <button type="button" class="btn-confirm" @onclick="HandleConfirm">Confirm &amp; Validate</button>
+    </div>
+</div>

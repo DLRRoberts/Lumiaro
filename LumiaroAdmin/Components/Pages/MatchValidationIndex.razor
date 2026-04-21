@@ -1,0 +1,63 @@
+@page "/match-validation"
+@using LumiaroAdmin.Services
+@inject FixtureService FixtureService
+
+<PageTitle>Match Validation</PageTitle>
+
+<div class="page-header">
+    <h1 class="page-title">Match Validation</h1>
+    <p class="page-subtitle">Select a fixture to open the validation session.</p>
+</div>
+
+@if (_loading)
+{
+    <div class="loading-state">Loading fixtures…</div>
+}
+else if (_fixtures is { Count: 0 })
+{
+    <div class="empty-state-card">
+        <p>No fixtures available.</p>
+    </div>
+}
+else
+{
+    <div class="data-table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Fixture</th>
+                    <th>Division</th>
+                    <th>Date</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var fixture in _fixtures!)
+                {
+                    <tr>
+                        <td>@fixture.HomeTeam vs @fixture.AwayTeam</td>
+                        <td>@fixture.DivisionName</td>
+                        <td>@fixture.DateDisplay</td>
+                        <td>
+                            <a class="btn btn-sm btn-primary" href="match-validation/@fixture.Id">Open</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private List<LumiaroAdmin.Models.Fixture>? _fixtures;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _fixtures = await FixtureService.GetAllFixturesAsync();
+        _loading = false;
+    }
+}
+
+
+

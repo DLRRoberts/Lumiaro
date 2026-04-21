@@ -1,0 +1,40 @@
+@namespace Lumiaro.MatchValidation.Components
+@using Lumiaro.MatchValidation.Models
+
+<div class="match-card">
+    <div class="match-teams">
+        <div class="team">
+            <div class="team-name">@HomeTeam.ShortName</div>
+            <div class="team-label">HOME</div>
+        </div>
+
+        <div class="score-block">
+            <div class="score-nums">
+                <span id="homeScore">@HomeScore</span>
+                <span class="score-sep">–</span>
+                <span id="awayScore">@AwayScore</span>
+            </div>
+            <div class="match-meta">
+                <span class="timer">@MatchTimer</span>
+                <span class="sep">·</span>
+                <span class="info">@MatchInfo.CompetitionLabel</span>
+                <span class="sep">·</span>
+                <span class="info">@MatchInfo.VenueName</span>
+            </div>
+        </div>
+
+        <div class="team away">
+            <div class="team-name">@AwayTeam.ShortName</div>
+            <div class="team-label">AWAY</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Team HomeTeam { get; set; } = Team.Empty;
+    [Parameter, EditorRequired] public Team AwayTeam { get; set; } = Team.Empty;
+    [Parameter, EditorRequired] public MatchInfo MatchInfo { get; set; } = Models.MatchInfo.Placeholder;
+    [Parameter] public int HomeScore { get; set; }
+    [Parameter] public int AwayScore { get; set; }
+    [Parameter] public string MatchTimer { get; set; } = "0'";
+}

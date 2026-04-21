@@ -1,0 +1,21 @@
+@namespace Lumiaro.MatchValidation.Components.Shared
+
+<div class="og-row">
+    <label class="og-switch">
+        <input type="checkbox" class="ep-og" checked="@Value" @onchange="HandleChange" />
+        <span class="og-slider"></span>
+    </label>
+    <span class="og-label @(Value ? "on" : "")">Own goal</span>
+    <span class="og-hint">— credited to opposing team</span>
+</div>
+
+@code {
+    [Parameter] public bool Value { get; set; }
+    [Parameter] public EventCallback<bool> ValueChanged { get; set; }
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        var isChecked = e.Value is bool b && b;
+        await ValueChanged.InvokeAsync(isChecked);
+    }
+}

@@ -1,0 +1,68 @@
+@namespace Lumiaro.MatchValidation.Components.EditPanels
+@using Lumiaro.MatchValidation.Models
+
+@* Dispatches to the correct typed edit panel based on the concrete event
+   type. Uses a switch on the runtime type — the same pattern Dom uses in
+   Sefe's ProfileContent renderer. Each branch forwards the typed event
+   plus the confirm/cancel callbacks. *@
+
+@switch (Event)
+{
+    case GoalEvent goal:
+        <GoalEditPanel Event="goal"
+                       HomeTeam="HomeTeam"
+                       AwayTeam="AwayTeam"
+                       HomeSquad="HomeSquad"
+                       AwaySquad="AwaySquad"
+                       IsOpen="IsOpen"
+                       OnCancel="OnCancel"
+                       OnConfirm="HandleGoalConfirm" />
+        break;
+
+    case CardEvent card:
+        <CardEditPanel Event="card"
+                       HomeTeam="HomeTeam"
+                       AwayTeam="AwayTeam"
+                       HomeSquad="HomeSquad"
+                       AwaySquad="AwaySquad"
+                       IsOpen="IsOpen"
+                       OnCancel="OnCancel"
+                       OnConfirm="HandleCardConfirm" />
+        break;
+
+    case SubstitutionEvent sub:
+        <SubstitutionEditPanel Event="sub"
+                               HomeTeam="HomeTeam"
+                               AwayTeam="AwayTeam"
+                               Rosters="Rosters"
+                               IsOpen="IsOpen"
+                               OnCancel="OnCancel"
+                               OnConfirm="HandleSubConfirm" />
+        break;
+
+    case TimingEvent timing:
+        <TimingEditPanel Event="timing"
+                         IsOpen="IsOpen"
+                         OnCancel="OnCancel"
+                         OnConfirm="HandleTimingConfirm" />
+        break;
+}
+
+@code {
+    [Parameter, EditorRequired] public MatchEvent Event { get; set; } = default!;
+    [Parameter, EditorRequired] public Team HomeTeam { get; set; } = Team.Empty;
+    [Parameter, EditorRequired] public Team AwayTeam { get; set; } = Team.Empty;
+    [Parameter, EditorRequired] public Squad HomeSquad { get; set; } = default!;
+    [Parameter, EditorRequired] public Squad AwaySquad { get; set; } = default!;
+    [Parameter, EditorRequired] public MatchRosterState Rosters { get; set; } = default!;
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback<MatchEvent> OnConfirm { get; set; }
+
+    // Each child emits a strongly-typed event; we widen it back to MatchEvent
+    // so the page orchestrator has one callback to handle regardless of shape.
+    private Task HandleGoalConfirm(GoalEvent e)          => OnConfirm.InvokeAsync(e);
+    private Task HandleCardConfirm(CardEvent e)          => OnConfirm.InvokeAsync(e);
+    private Task HandleSubConfirm(SubstitutionEvent e)   => OnConfirm.InvokeAsync(e);
+    private Task HandleTimingConfirm(TimingEvent e)      => OnConfirm.InvokeAsync(e);
+}

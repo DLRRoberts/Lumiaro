@@ -1,0 +1,22 @@
+@namespace Lumiaro.MatchValidation.Components
+@using Lumiaro.MatchValidation.Models
+
+@* Development-only toolbar that dispatches sample events into the session.
+   In production this component is hidden behind a feature flag or removed
+   entirely — the real events arrive via IValidationEventStream (SignalR
+   backplane shared with Submaster). *@
+
+<div class="vdc-bar">
+    <span class="vdc-label">▶ Simulate VDC push</span>
+    <button type="button" class="vdc-btn" @onclick="@(() => OnPush.InvokeAsync(VdcSampleKind.Goal))">Goal</button>
+    <button type="button" class="vdc-btn" @onclick="@(() => OnPush.InvokeAsync(VdcSampleKind.YellowCard))">Yellow card</button>
+    <button type="button" class="vdc-btn" @onclick="@(() => OnPush.InvokeAsync(VdcSampleKind.RedCard))">Red card</button>
+    <button type="button" class="vdc-btn" @onclick="@(() => OnPush.InvokeAsync(VdcSampleKind.Substitution))">Substitution</button>
+    <button type="button" class="vdc-btn" @onclick="@(() => OnPush.InvokeAsync(VdcSampleKind.Timing))">Timing</button>
+</div>
+
+@code {
+    public enum VdcSampleKind { Goal, YellowCard, RedCard, Substitution, Timing }
+
+    [Parameter] public EventCallback<VdcSampleKind> OnPush { get; set; }
+}

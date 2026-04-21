@@ -1,0 +1,27 @@
+@namespace Lumiaro.MatchValidation.Components.Shared
+@using Lumiaro.MatchValidation.Models
+
+<div class="form-group">
+    <label>Card type</label>
+    <select class="@CssClass" value="@SelectedValue" @onchange="HandleChange">
+        <option value="">Select type</option>
+        <option value="@CardType.Yellow.FormValue()">Yellow Card</option>
+        <option value="@CardType.SecondYellow.FormValue()">2nd Yellow Card</option>
+        <option value="@CardType.Red.FormValue()">Direct Red Card</option>
+    </select>
+</div>
+
+@code {
+    [Parameter] public CardType? Value { get; set; }
+    [Parameter] public EventCallback<CardType?> ValueChanged { get; set; }
+    [Parameter] public bool HasError { get; set; }
+
+    private string CssClass => HasError ? "ep-cardType field-error" : "ep-cardType";
+    private string SelectedValue => Value?.FormValue() ?? string.Empty;
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        var parsed = CardTypeExtensions.Parse(e.Value?.ToString());
+        await ValueChanged.InvokeAsync(parsed);
+    }
+}

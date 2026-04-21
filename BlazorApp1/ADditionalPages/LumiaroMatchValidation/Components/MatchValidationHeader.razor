@@ -1,0 +1,38 @@
+@namespace Lumiaro.MatchValidation.Components
+
+<div class="mvt-header">
+    <div class="mvt-logo">
+        <div class="ucl-star"></div>
+        <div class="logo-text">
+            <div class="top">@TopLabel</div>
+            <div class="bottom">@BottomLabel</div>
+        </div>
+    </div>
+    <div class="mvt-badges">
+        @if (ShowSecureBadge)
+        {
+            <span class="pill pill-secure">🔒 Secure session</span>
+        }
+        @if (ShowSsoBadge)
+        {
+            <span class="pill pill-sso">SSO</span>
+        }
+        @if (ShowLiveBadge)
+        {
+            <span class="pill pill-live">● Live</span>
+        }
+        @if (!string.IsNullOrEmpty(UserLabel))
+        {
+            <span class="mvt-user">@UserLabel</span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string TopLabel { get; set; } = "UEFA";
+    [Parameter] public string BottomLabel { get; set; } = "MATCH VALIDATION";
+    [Parameter] public bool ShowSecureBadge { get; set; } = true;
+    [Parameter] public bool ShowSsoBadge { get; set; } = true;
+    [Parameter] public bool ShowLiveBadge { get; set; } = true;
+    [Parameter] public string UserLabel { get; set; } = "";
+}

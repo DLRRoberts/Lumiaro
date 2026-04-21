@@ -1,0 +1,28 @@
+@namespace Lumiaro.MatchValidation.Components.Shared
+@using Lumiaro.MatchValidation.Models
+
+<div class="form-group">
+    <label>Team</label>
+    <select class="@CssClass" value="@SelectedValue" @onchange="HandleChange">
+        <option value="">Select team</option>
+        <option value="@TeamKey.Home">@HomeTeam.ShortName</option>
+        <option value="@TeamKey.Away">@AwayTeam.ShortName</option>
+    </select>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Team HomeTeam { get; set; } = Team.Empty;
+    [Parameter, EditorRequired] public Team AwayTeam { get; set; } = Team.Empty;
+    [Parameter] public TeamKey? Value { get; set; }
+    [Parameter] public EventCallback<TeamKey?> ValueChanged { get; set; }
+    [Parameter] public bool HasError { get; set; }
+
+    private string CssClass => HasError ? "ep-team field-error" : "ep-team";
+    private string SelectedValue => Value?.ToString() ?? string.Empty;
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        var parsed = Enum.TryParse<TeamKey>(e.Value?.ToString(), out var key) ? key : (TeamKey?)null;
+        await ValueChanged.InvokeAsync(parsed);
+    }
+}

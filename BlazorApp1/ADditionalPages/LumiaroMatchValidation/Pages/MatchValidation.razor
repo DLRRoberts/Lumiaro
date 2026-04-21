@@ -1,0 +1,52 @@
+@namespace Lumiaro.MatchValidation.Pages
+@page "/match-validation/{MatchId:guid}"
+@using Lumiaro.MatchValidation.Components
+@using Lumiaro.MatchValidation.Models
+@using Lumiaro.MatchValidation.Services
+@implements IDisposable
+@inject IMatchValidationSessionService Session
+@inject IDemoVdcPushFactory DemoFactory
+@inject IMinuteFormatter MinuteFormatter
+
+@* Page-level orchestrator. Owns nothing of its own — all state lives in
+   IMatchValidationSessionService — but wires child EventCallbacks back to
+   session mutations and re-renders when SessionChanged fires. *@
+
+<div class="wrap">
+    <MatchValidationHeader UserLabel="@UserLabel" />
+
+    <MatchCard HomeTeam="@Current.HomeSquad.Team"
+               AwayTeam="@Current.AwaySquad.Team"
+               MatchInfo="@Current.Match"
+               HomeScore="@Current.HomeScore"
+               AwayScore="@Current.AwayScore"
+               MatchTimer="@LiveMatchTimer" />
+
+    <PendingEventsSection Events="Current.Pending"
+                          HomeTeam="@Current.HomeSquad.Team"
+                          AwayTeam="@Current.AwaySquad.Team"
+                          HomeSquad="@Current.HomeSquad"
+                          AwaySquad="@Current.AwaySquad"
+                          Rosters="@Current.Rosters"
+                          Phase="@Current.Phase"
+                          ShowDemoToolbar="@ShowDemoToolbar"
+                          OnQuickValidate="HandleQuickValidate"
+                          OnConfirmEdit="HandleConfirmEdit"
+                          OnSimulatePush="HandleDemoPush" />
+
+    <ValidatedEventsSection Events="Current.Validated"
+                            HomeTeam="@Current.HomeSquad.Team"
+                            AwayTeam="@Current.AwaySquad.Team"
+                            HomeSquad="@Current.HomeSquad"
+                            AwaySquad="@Current.AwaySquad"
+                            Rosters="@Current.Rosters"
+                            Phase="@Current.Phase" />
+
+    <MatchDurationPanel Phase="@Current.Phase" />
+
+    <PostMatchIncidentReport Incidents="@Current.Incidents"
+                             PendingEventCount="@Current.Pending.Count"
+                             CanFinalize="@Current.CanFinalize"
+                             OnDescriptionChanged="HandleDescriptionChanged"
+                             OnFinalize="HandleFinalize" />
+</div>

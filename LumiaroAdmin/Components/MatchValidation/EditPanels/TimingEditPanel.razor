@@ -1,0 +1,30 @@
+@namespace Lumiaro.MatchValidation.Components.EditPanels
+@using Lumiaro.MatchValidation.Models
+
+<div class="edit-panel @(IsOpen ? "open" : "")">
+    <div class="edit-panel-label">Edit timing</div>
+
+    <div class="form-row two">
+        <div class="form-group">
+            <label>Event</label>
+            <input type="text"
+                   value="@Event.Kind.DisplayLabel()"
+                   style="opacity:.55;cursor:default"
+                   readonly />
+        </div>
+
+        <div class="form-group">
+            <label>Real time (HH:MM:SS)</label>
+            <input class="@TimeInputClass"
+                   type="time"
+                   step="1"
+                   value="@_realTimeText"
+                   @onchange="OnRealTimeChanged" />
+        </div>
+    </div>
+
+    <div class="edit-actions">
+        <button type="button" class="btn-cancel" @onclick="OnCancel">Cancel</button>
+        <button type="button" class="btn-confirm" @onclick="HandleConfirm">Confirm &amp; Validate</button>
+    </div>
+</div>

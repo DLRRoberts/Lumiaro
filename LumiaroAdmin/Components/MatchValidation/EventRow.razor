@@ -1,0 +1,55 @@
+@namespace Lumiaro.MatchValidation.Components
+@using Lumiaro.MatchValidation.Components.EditPanels
+@using Lumiaro.MatchValidation.Models
+@using Lumiaro.MatchValidation.Services
+
+<div class="event-row @(IsNewArrival ? "new-arrive" : "")" data-sortmin="@Event.Minute">
+    <div class="event-summary">
+        <div class="event-icon @IconCssClass">@IconLetter</div>
+
+        <div class="event-body">
+            <div class="ev-main">@((MarkupString)Summary.Main)</div>
+            @if (!string.IsNullOrEmpty(Summary.Sub))
+            {
+                <div class="ev-sub">@((MarkupString)Summary.Sub)</div>
+            }
+            @if (Mode == RowMode.Pending && !string.IsNullOrEmpty(SourceLabel))
+            {
+                <div class="ev-source">@SourceLabel</div>
+            }
+        </div>
+
+        <div class="event-minute">@MinuteDisplay</div>
+
+        <div class="event-actions">
+            @switch (Mode)
+            {
+                case RowMode.Pending:
+                    <button type="button"
+                            class="btn-edit @(IsEditOpen ? "active" : "")"
+                            @onclick="HandleToggleEdit">Edit</button>
+                    <button type="button"
+                            class="btn-validate"
+                            @onclick="HandleQuickValidate">Validate ✓</button>
+                    break;
+
+                case RowMode.Validated:
+                    <span class="validated-badge">✓ Validated</span>
+                    break;
+            }
+        </div>
+    </div>
+
+    @if (Mode == RowMode.Pending)
+    {
+        <EventEditPanel Event="Event"
+                        HomeTeam="HomeTeam"
+                        AwayTeam="AwayTeam"
+                        HomeSquad="HomeSquad"
+                        AwaySquad="AwaySquad"
+                        Rosters="Rosters"
+                        IsOpen="IsEditOpen"
+                        OnCancel="HandleCancelEdit"
+                        OnConfirm="HandleConfirmEdit" />
+    }
+</div>

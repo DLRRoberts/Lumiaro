@@ -1,0 +1,60 @@
+@namespace Lumiaro.MatchValidation.Components
+@using Lumiaro.MatchValidation.Models
+
+<div class="section-card">
+    <div class="section-title">
+        AWAITING VALIDATION
+        <span class="sec-badge" style="@BadgeStyle">@BadgeText</span>
+        <span style="margin-left:auto;font-family:'Barlow',sans-serif;font-size:10px;color:var(--text-tertiary);font-weight:400;letter-spacing:0">
+            Submitted by VDC
+        </span>
+    </div>
+
+    @if (ShowDemoToolbar)
+    {
+        <VdcDemoToolbar OnPush="OnSimulatePush" />
+    }
+
+    <div id="pendingFeed">
+        @foreach (var e in Events)
+        {
+            <EventRow @key="e.Id"
+                      Event="e"
+                      Mode="RowMode.Pending"
+                      HomeTeam="HomeTeam"
+                      AwayTeam="AwayTeam"
+                      HomeSquad="HomeSquad"
+                      AwaySquad="AwaySquad"
+                      Rosters="Rosters"
+                      Phase="Phase"
+                      OnQuickValidate="OnQuickValidate"
+                      OnConfirmEdit="OnConfirmEdit" />
+        }
+
+        @if (Events.Count == 0)
+        {
+            <div class="empty-state">No events awaiting validation.</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<MatchEvent> Events { get; set; } = Array.Empty<MatchEvent>();
+    [Parameter, EditorRequired] public Team HomeTeam { get; set; } = Team.Empty;
+    [Parameter, EditorRequired] public Team AwayTeam { get; set; } = Team.Empty;
+    [Parameter, EditorRequired] public Squad HomeSquad { get; set; } = default!;
+    [Parameter, EditorRequired] public Squad AwaySquad { get; set; } = default!;
+    [Parameter, EditorRequired] public MatchRosterState Rosters { get; set; } = default!;
+    [Parameter, EditorRequired] public MatchPhase Phase { get; set; } = default!;
+    [Parameter] public bool ShowDemoToolbar { get; set; } = true;
+
+    [Parameter] public EventCallback<Guid> OnQuickValidate { get; set; }
+    [Parameter] public EventCallback<MatchEvent> OnConfirmEdit { get; set; }
+    [Parameter] public EventCallback<VdcDemoToolbar.VdcSampleKind> OnSimulatePush { get; set; }
+
+    private string BadgeText => $"{Events.Count} pending";
+
+    private string BadgeStyle => Events.Count > 0
+        ? "background:var(--amber-bg);color:var(--amber-text);border:1px solid var(--amber-border);"
+        : "background:var(--green-bg);color:var(--green-text);border:1px solid var(--green-border);";
+}

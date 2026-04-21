@@ -1,0 +1,62 @@
+@namespace Lumiaro.MatchValidation.Components
+@using Lumiaro.MatchValidation.Models
+
+@if (Phase.HasAnyMarker)
+{
+    <div class="section-card" id="durationPanel">
+        <div class="section-title">MATCH DURATION BREAKDOWN</div>
+        <div class="dur-grid">
+            <div class="dur-cell">
+                <div class="dur-label">1st half added time</div>
+                <div class="@CellClass(_firstHalfAdded)">@(_firstHalfAdded ?? "Awaiting timing events")</div>
+            </div>
+            <div class="dur-cell">
+                <div class="dur-label">Half time duration</div>
+                <div class="@CellClass(_halfTimeDuration)">@(_halfTimeDuration ?? "Awaiting timing events")</div>
+            </div>
+            <div class="dur-cell">
+                <div class="dur-label">2nd half added time</div>
+                <div class="@CellClass(_secondHalfAdded)">@(_secondHalfAdded ?? "Awaiting timing events")</div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public MatchPhase Phase { get; set; } = default!;
+
+    private string? _firstHalfAdded;
+    private string? _halfTimeDuration;
+    private string? _secondHalfAdded;
+
+    protected override void OnParametersSet()
+    {
+        _firstHalfAdded   = ComputeAddedTime(Phase.StartFirstHalf,  Phase.EndFirstHalf);
+        _halfTimeDuration = ComputeGapBetween(Phase.EndFirstHalf,   Phase.StartSecondHalf);
+        _secondHalfAdded  = ComputeAddedTime(Phase.StartSecondHalf, Phase.EndSecondHalf);
+    }
+
+    private static string CellClass(string? value) =>
+        value is null ? "dur-value pending" : "dur-value";
+
+    private static string? ComputeAddedTime(TimeOnly? start, TimeOnly? end)
+    {
+        if (start is null || end is null) return null;
+        var totalSeconds = (end.Value.ToTimeSpan() - start.Value.ToTimeSpan()).TotalSeconds;
+        var addedSeconds = totalSeconds - 45 * 60;
+        return FormatMinutesSeconds(Math.Max(0, addedSeconds));
+    }
+
+    private static string? ComputeGapBetween(TimeOnly? earlier, TimeOnly? later)
+    {
+        if (earlier is null || later is null) return null;
+        var seconds = (later.Value.ToTimeSpan() - earlier.Value.ToTimeSpan()).TotalSeconds;
+        return FormatMinutesSeconds(Math.Max(0, seconds));
+    }
+
+    private static string FormatMinutesSeconds(double totalSeconds)
+    {
+        var rounded = (int)Math.Round(totalSeconds);
+        return $"{rounded / 60}:{(rounded % 60):D2}";
+    }
+}
