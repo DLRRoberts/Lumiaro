@@ -101,7 +101,7 @@ public class DtoToModelProfile : Profile
             MatchDate = source.Fixture?.Date ?? source.CreatedAt.Date,
             OverallScore = source.OverallScore,
             Recommendations = source.Recommendations,
-            RefereeCode = source.Referee.RefCode,
+            RefereeCode = source.Referee?.RefCode,
             MatchTitle = CreateMatchTitle(source.Fixture),
             RefereeId = source.RefereeId,
             RefereeName = CreateRefereeDisplayName(source.Referee),
@@ -117,10 +117,10 @@ public class DtoToModelProfile : Profile
         $"{sourceReferee.FirstName.First()}{sourceReferee.LastName?.FirstOrDefault().ToString() ?? ""}";
 
     private static string CreateRefereeDisplayName(RefereeEntity sourceReferee) =>
-        $"{sourceReferee.FirstName} {sourceReferee.LastName}";
+        $"{sourceReferee?.FirstName} {sourceReferee?.LastName}";
 
     private static string CreateMatchTitle(FixtureEntity sourceFixture) =>
-        $"{sourceFixture.HomeTeam} - {sourceFixture.AwayTeam} ({sourceFixture.Date.ToShortDateString()}";
+        $"{sourceFixture?.HomeTeam} - {sourceFixture?.AwayTeam} ({sourceFixture?.Date.ToShortDateString()}";
 
     private RefereeTier MapTier(Enums.RefereeTier? divisionTier) =>
         divisionTier switch

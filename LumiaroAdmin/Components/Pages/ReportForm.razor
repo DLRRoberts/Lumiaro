@@ -6,6 +6,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @rendermode InteractiveServer
+@implements IDisposable
 
 @if (Model == null)
 {
@@ -17,7 +18,7 @@
 }
 else
 {
-    <PageTitle>Lumiaro — @(IsEdit ? "Edit" : "New") Match Report</PageTitle>
+    <PageTitle>RefAdmin — @(IsEdit ? "Edit" : "New") Match Report</PageTitle>
 
     <a href="@(IsEdit ? $"/reports/{Id}" : "/reports")" class="back-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
@@ -501,6 +502,25 @@ else
             };
         }
     }
+    
+    public void Dispose()
+    {
+        L.OnLanguageChanged -= HandleLanguageChanged;
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await L.InitializeAsync();
+
+            L.OnLanguageChanged += HandleLanguageChanged;
+
+            StateHasChanged();
+        }
+    }
+    
+    private void HandleLanguageChanged() => InvokeAsync(StateHasChanged);
 
     private void OnOverallRatingInput(ChangeEventArgs e)
     {

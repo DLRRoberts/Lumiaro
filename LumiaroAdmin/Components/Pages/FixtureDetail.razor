@@ -1,6 +1,7 @@
 @page "/fixtures/{Id:int}"
 @inject FixtureService FixtureService
 @inject NavigationManager Nav
+@implements IDisposable
 
 @if (Fixture is null)
 {
@@ -205,6 +206,25 @@ else
         OfficialRole.AssistantReferee2,
         OfficialRole.MatchOfficial
     };
+    
+    public void Dispose()
+    {
+        L.OnLanguageChanged -= HandleLanguageChanged;
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await L.InitializeAsync();
+
+            L.OnLanguageChanged += HandleLanguageChanged;
+
+            StateHasChanged();
+        }
+    }
+    
+    private void HandleLanguageChanged() => InvokeAsync(StateHasChanged);
 
     protected override async Task OnParametersSetAsync() => await LoadFixtureAsync();
 

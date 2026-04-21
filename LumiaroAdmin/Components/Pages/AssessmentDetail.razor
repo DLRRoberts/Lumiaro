@@ -4,6 +4,7 @@
 @inject AssessmentService AssessmentService
 @inject NavigationManager Nav
 @rendermode InteractiveServer
+@implements IDisposable
 
 @if (Assessment is null)
 {
@@ -426,6 +427,25 @@ else
         AssessmentStatus.Finalised => "status-finalised",
         _ => "status-draft"
     };
+    
+    public void Dispose()
+    {
+        L.OnLanguageChanged -= HandleLanguageChanged;
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await L.InitializeAsync();
+
+            L.OnLanguageChanged += HandleLanguageChanged;
+
+            StateHasChanged();
+        }
+    }
+    
+    private void HandleLanguageChanged() => InvokeAsync(StateHasChanged);
 
     private void SetKmiActiveTab()
     {

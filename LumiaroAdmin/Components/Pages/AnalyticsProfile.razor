@@ -2,14 +2,15 @@
 @inject AnalyticsService AnalyticsService
 @inject NavigationManager Nav
 @rendermode InteractiveServer
+@implements IDisposable
 
-<PageTitle>Lumiaro — @(Profile?.Name ?? "Referee") Analytics</PageTitle>
+<PageTitle>RefAdmin — @(Profile?.Name ?? "Referee") Analytics</PageTitle>
 
 @if (Profile == null)
 {
     <div class="empty-state-inline" style="margin-top:60px;">
         <p>Referee not found or no analytics data available.</p>
-        <a href="/analytics" class="btn btn-ghost" style="margin-top:12px;">← Back to Analytics</a>
+        <a href="/analytics" class="btn btn-ghost" style="margin-top:12px;">@L["analytics.profile.backToAnalytics"]</a>
     </div>
 }
 else
@@ -30,8 +31,8 @@ else
             </div>
         </div>
         <div style="display:flex;gap:10px;align-items:center;">
-            <a href="/referees/@Profile.RefereeId" class="btn btn-ghost btn-sm">Full Profile →</a>
-            <a href="/analytics" class="btn btn-ghost btn-sm">← Rankings</a>
+            <a href="/referees/@Profile.RefereeId" class="btn btn-ghost btn-sm">@L["analytics.profile.fullProfile"]</a>
+            <a href="/analytics" class="btn btn-ghost btn-sm">@L["analytics.profile.rankings"]</a>
         </div>
     </div>
 
@@ -51,7 +52,7 @@ else
     <div class="content-grid-2" style="margin-top:8px;">
         <div class="card" style="padding:20px 24px;">
             <div class="section-title">
-                Competency Radar
+                @L["analytics.profile.competencyRadar"]
                 <span class="accent-line"></span>
             </div>
             <div style="display:flex;justify-content:center;">
@@ -66,7 +67,7 @@ else
 
         <div class="card" style="padding:20px 24px;">
             <div class="section-title">
-                Decision Accuracy
+                @L["analytics.statAccuracy"]
                 <span class="accent-line"></span>
             </div>
             @if (Profile.DecisionAccuracy.TotalDecisionsReviewed > 0)
@@ -464,6 +465,25 @@ else
     {
         Profile = await AnalyticsService.GetRefereeProfileAsync(Id);
     }
+    
+    public void Dispose()
+    {
+        L.OnLanguageChanged -= HandleLanguageChanged;
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await L.InitializeAsync();
+
+            L.OnLanguageChanged += HandleLanguageChanged;
+
+            StateHasChanged();
+        }
+    }
+    
+    private void HandleLanguageChanged() => InvokeAsync(StateHasChanged);
 
     private string TrendLabel => Profile?.TrendChange switch
     {

@@ -898,6 +898,10 @@ namespace LumiaroAdmin.Data.Migrations
                     b.Property<int>("CompetitionTier")
                         .HasColumnType("int");
 
+                    b.Property<string>("ConfidentialNotes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 

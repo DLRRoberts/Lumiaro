@@ -1,6 +1,7 @@
 @page "/referees/{Id:int}"
 @inject RefereeService RefereeService
 @inject NavigationManager Nav
+@implements IDisposable
 
 @if (Referee is null)
 {
@@ -12,7 +13,7 @@
 }
 else
 {
-    <PageTitle>Lumiaro — @Referee.FullName</PageTitle>
+    <PageTitle>RefAdmin — @Referee.FullName</PageTitle>
 
     @* ── Profile Hero ── *@
     <div class="profile-hero">
@@ -206,6 +207,25 @@ else
         if (Referee != null)
             Matches = await RefereeService.GetMatchesForRefereeAsync(Id);
     }
+    
+    public void Dispose()
+    {
+        L.OnLanguageChanged -= HandleLanguageChanged;
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await L.InitializeAsync();
+
+            L.OnLanguageChanged += HandleLanguageChanged;
+
+            StateHasChanged();
+        }
+    }
+    
+    private void HandleLanguageChanged() => InvokeAsync(StateHasChanged);
 
     private async Task OnSeasonFilterChanged(string filter)
     {

@@ -5,6 +5,7 @@
 @inject RefereeService RefereeService
 @inject NavigationManager Nav
 @rendermode InteractiveServer
+@implements IDisposable
 
 <PageTitle>@L["assessments.pageTitle"]</PageTitle>
 
@@ -255,6 +256,25 @@ else
     }
 
     private void ViewAssessment(int id) => Nav.NavigateTo($"/assessments/{id}");
+    
+    public void Dispose()
+    {
+        L.OnLanguageChanged -= HandleLanguageChanged;
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await L.InitializeAsync();
+
+            L.OnLanguageChanged += HandleLanguageChanged;
+
+            StateHasChanged();
+        }
+    }
+    
+    private void HandleLanguageChanged() => InvokeAsync(StateHasChanged);
 
     private async Task ApplyFiltersAsync()
     {

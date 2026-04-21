@@ -3,11 +3,13 @@ using LumiaroAdmin.Components;
 using LumiaroAdmin.Data;
 using LumiaroAdmin.Data.Profiles;
 using Microsoft.AspNetCore.Hosting.StaticWebAssets;
+using QuestPDF.Infrastructure;
 using RedZone.LumiaroAdmin.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
 StaticWebAssetsLoader.UseStaticWebAssets(builder.Environment, builder.Configuration);
+QuestPDF.Settings.License = LicenseType.Community;
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -37,6 +39,7 @@ builder.Services.AddScoped<RefereeService>();
 builder.Services.AddScoped<FixtureService>();
 builder.Services.AddScoped<AssessmentService>();
 builder.Services.AddScoped<MatchReportService>();
+builder.Services.AddScoped<IMatchReportPdfService, MatchReportPdfService>();
 builder.Services.AddScoped<InterventionReviewService>();
 builder.Services.AddScoped<AnalyticsService>();
 builder.Services.AddScoped<ILocalizationService, LocalizationService>();
@@ -58,6 +61,35 @@ else
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
+
+app.MapGet("/reports/{id:int}/pdf", async (int id, string? mode, string? theme, MatchReportService reportService, IMatchReportPdfService pdfService) =>
+{
+    var report = await reportService.GetByIdAsync(id);
+    if (report is null)
+    {
+        return Results.NotFound();
+    }
+
+    var pdf = pdfService.Generate(report, new MatchReportPdfOptions
+    {
+        ExportMode = mode?.ToLowerInvariant() switch
+        {
+            "public" => MatchReportPdfExportMode.Public,
+            _ => MatchReportPdfExportMode.Internal
+        },
+        ThemePreset = theme?.ToLowerInvariant() switch
+        {
+            "uefa" => MatchReportPdfThemePreset.Uefa,
+            "premier" => MatchReportPdfThemePreset.PremierLeague,
+            "efl" => MatchReportPdfThemePreset.Efl,
+            "neutral" => MatchReportPdfThemePreset.Neutral,
+            "lumiaro" => MatchReportPdfThemePreset.Lumiaro,
+            _ => MatchReportPdfThemePreset.Auto
+        }
+    });
+
+    return Results.File(pdf.Content, pdf.ContentType, pdf.FileName);
+});
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

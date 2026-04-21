@@ -18,7 +18,7 @@ else
 
     <a href="/reports" class="back-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
-        Match Reports
+        @L["reports.title"]
     </a>
 
     @* ── Hero ── *@
@@ -92,6 +92,24 @@ else
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             Edit Report
         </button>
+        <div class="form-group" style="min-width:210px;margin-bottom:0;">
+            <select class="form-select" @bind="SelectedPdfTheme" style="height:40px;">
+                <option value="@MatchReportPdfThemePreset.Auto">@L["reports.pdfTheme.auto"]</option>
+                <option value="@MatchReportPdfThemePreset.Lumiaro">@L["reports.pdfTheme.lumiaro"]</option>
+                <option value="@MatchReportPdfThemePreset.Uefa">@L["reports.pdfTheme.uefa"]</option>
+                <option value="@MatchReportPdfThemePreset.PremierLeague">@L["reports.pdfTheme.premier"]</option>
+                <option value="@MatchReportPdfThemePreset.Efl">@L["reports.pdfTheme.efl"]</option>
+                <option value="@MatchReportPdfThemePreset.Neutral">@L["reports.pdfTheme.neutral"]</option>
+            </select>
+        </div>
+        <a href="@BuildPdfUrl(MatchReportPdfExportMode.Internal)" class="btn btn-secondary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 17v-9"/><path d="M7 12l5 5 5-5"/><path d="M5 21h14"/></svg>
+            @L["reports.exportInternalPdf"]
+        </a>
+        <a href="@BuildPdfUrl(MatchReportPdfExportMode.Public)" class="btn btn-ghost">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 17v-9"/><path d="M7 12l5 5 5-5"/><path d="M5 21h14"/></svg>
+            @L["reports.exportPublicPdf"]
+        </a>
         @if (Report.Status == ReportStatus.Draft)
         {
             <button class="btn btn-secondary" @onclick="SubmitReport">@L["reports.submitForReview"]</button>
@@ -350,6 +368,7 @@ else
     private MatchOfficialReport? Report;
     private string ActiveTab = "sections";
     private int ReviewerCount;
+    private MatchReportPdfThemePreset SelectedPdfTheme = MatchReportPdfThemePreset.Auto;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -360,6 +379,7 @@ else
 
     private void SetTab(string tab) => ActiveTab = tab;
     private void EditReport() => Nav.NavigateTo($"/reports/edit/{Report!.Id}");
+    private string BuildPdfUrl(MatchReportPdfExportMode exportMode) => $"/reports/{Report!.Id}/pdf?mode={GetModeQueryValue(exportMode)}&theme={GetThemeQueryValue(SelectedPdfTheme)}";
 
     private async Task SubmitReport()
     {
@@ -377,5 +397,21 @@ else
         ReportStatus.Submitted => "status-submitted",
         ReportStatus.Published => "status-finalised",
         _ => "status-draft"
+    };
+
+    private static string GetModeQueryValue(MatchReportPdfExportMode exportMode) => exportMode switch
+    {
+        MatchReportPdfExportMode.Public => "public",
+        _ => "internal"
+    };
+
+    private static string GetThemeQueryValue(MatchReportPdfThemePreset theme) => theme switch
+    {
+        MatchReportPdfThemePreset.Uefa => "uefa",
+        MatchReportPdfThemePreset.PremierLeague => "premier",
+        MatchReportPdfThemePreset.Efl => "efl",
+        MatchReportPdfThemePreset.Neutral => "neutral",
+        MatchReportPdfThemePreset.Lumiaro => "lumiaro",
+        _ => "auto"
     };
 }

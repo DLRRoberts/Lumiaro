@@ -61,6 +61,9 @@ public class MatchOfficialReportEntity
     [MaxLength(4000)]
     public string? DevelopmentPriorities { get; set; }
 
+    [MaxLength(4000)]
+    public string? ConfidentialNotes { get; set; }
+
     [MaxLength(200)]
     public string AuthorName { get; set; } = string.Empty;
 

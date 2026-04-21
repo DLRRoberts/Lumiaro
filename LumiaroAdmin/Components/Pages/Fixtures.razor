@@ -1,6 +1,7 @@
 @page "/fixtures"
 @inject FixtureService FixtureService
 @inject NavigationManager Nav
+@implements IDisposable
 
 <PageTitle>@L["fixtures.pageTitle"]</PageTitle>
 
@@ -183,6 +184,25 @@ else
 
         await ApplyFiltersAsync();
     }
+    
+    public void Dispose()
+    {
+        L.OnLanguageChanged -= HandleLanguageChanged;
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await L.InitializeAsync();
+
+            L.OnLanguageChanged += HandleLanguageChanged;
+
+            StateHasChanged();
+        }
+    }
+    
+    private void HandleLanguageChanged() => InvokeAsync(StateHasChanged);
 
     private void ViewFixture(int id) => Nav.NavigateTo($"/fixtures/{id}");
 

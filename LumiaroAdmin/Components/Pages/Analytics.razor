@@ -2,14 +2,15 @@
 @inject AnalyticsService AnalyticsService
 @inject NavigationManager Nav
 @rendermode InteractiveServer
+@implements IDisposable
 
-<PageTitle>Lumiaro — Performance Analytics</PageTitle>
+<PageTitle>RefAdmin — @L["nav.analytics"]</PageTitle>
 
 @* ── Header ── *@
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;flex-wrap:wrap;gap:16px;">
     <div>
         <h1 style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;margin-bottom:4px;">
-            Performance Analytics
+            @L["nav.analytics"]
         </h1>
         <p style="font-size:.85rem;color:var(--text-muted);font-weight:300;">
             Season overview, referee rankings, competency trends, and tier readiness indicators.
@@ -317,6 +318,25 @@
         AllRankings = Fleet.AllRankings;
         ApplyFilters();
     }
+    
+    public void Dispose()
+    {
+        L.OnLanguageChanged -= HandleLanguageChanged;
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await L.InitializeAsync();
+
+            L.OnLanguageChanged += HandleLanguageChanged;
+
+            StateHasChanged();
+        }
+    }
+    
+    private void HandleLanguageChanged() => InvokeAsync(StateHasChanged);
 
     private void SetTierFilter(RefereeTier? tier)
     {

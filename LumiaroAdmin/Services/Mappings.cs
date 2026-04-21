@@ -308,7 +308,7 @@ public static class Mappings
             MatchTitle = e.MatchTitle,
             MatchDate = e.MatchDate,
             Venue = e.Venue,
-            Competition = "",  // Hydrated from fixture division at query time
+            Competition = e.Fixture?.Division?.Name ?? "",
             CompetitionTier = e.CompetitionTier.ToDomain(),
             RefereeName = e.RefereeName ?? "",
             RefereeCode = e.RefereeCode ?? "",
@@ -324,6 +324,7 @@ public static class Mappings
             UpdatedAt = e.UpdatedAt,
             Conclusion = e.ExecutiveSummary,
             Recommendations = e.DevelopmentPriorities,
+            ConfidentialNotes = e.ConfidentialNotes,
             PerformanceSummary = MapSection(0),
             DecisionMaking = MapSection(1),
             Positioning = MapSection(2),

@@ -95,6 +95,7 @@ public class MatchReportService
             AuthorName = report.AuthorName,
             ExecutiveSummary = report.Conclusion,
             DevelopmentPriorities = report.Recommendations,
+            ConfidentialNotes = report.ConfidentialNotes,
             CreatedAt = DateTime.UtcNow,
         };
 
@@ -114,6 +115,7 @@ public class MatchReportService
         entity.AuthorName = updated.AuthorName;
         entity.ExecutiveSummary = updated.Conclusion;
         entity.DevelopmentPriorities = updated.Recommendations;
+        entity.ConfidentialNotes = updated.ConfidentialNotes;
         entity.UpdatedAt = DateTime.UtcNow;
 
         _reportRepo.Update(entity);

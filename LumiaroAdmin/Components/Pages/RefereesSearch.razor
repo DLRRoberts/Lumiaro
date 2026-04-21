@@ -1,6 +1,7 @@
 @page "/search"
 @inject RefereeService RefereeService
 @inject NavigationManager Nav
+@implements IDisposable
 
 <PageTitle>@L["referees.search.pageTitle"]</PageTitle>
 
@@ -111,6 +112,25 @@
     protected override async Task OnInitializedAsync() => await ApplySearchAsync();
 
     private async Task OnTierFilterChanged(string filter) { ActiveTierFilter = filter; await ApplySearchAsync(); }
+    
+    public void Dispose()
+    {
+        L.OnLanguageChanged -= HandleLanguageChanged;
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await L.InitializeAsync();
+
+            L.OnLanguageChanged += HandleLanguageChanged;
+
+            StateHasChanged();
+        }
+    }
+    
+    private void HandleLanguageChanged() => InvokeAsync(StateHasChanged);
 
     private async Task ApplySearchAsync()
     {

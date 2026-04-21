@@ -8,6 +8,9 @@ public class MatchOfficialReportConfiguration : IEntityTypeConfiguration<MatchOf
 {
     public void Configure(EntityTypeBuilder<MatchOfficialReportEntity> builder)
     {
+        builder.Property(r => r.ConfidentialNotes)
+            .HasMaxLength(4000);
+
         builder.HasIndex(r => r.Status);
         builder.HasIndex(r => r.RefereeId);
         builder.HasIndex(r => r.FixtureId);

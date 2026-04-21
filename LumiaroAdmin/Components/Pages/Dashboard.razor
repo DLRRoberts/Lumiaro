@@ -1,27 +1,28 @@
 @page "/"
 @inject RefereeService RefereeService
+@implements IDisposable
 
-<PageTitle>Lumiaro — Dashboard</PageTitle>
+<PageTitle>RefAdmin — @L["nav.dashboard"]</PageTitle>
 
 <div style="margin-bottom:28px;">
     <h1 style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;margin-bottom:4px;">
-        Referee Administration
+        @L["dashboard.title"]
     </h1>
     <p style="font-size:.88rem;color:var(--text-muted);font-weight:300;">
-        Overview of the referee pool, recent activity, and system status.
+        @L["dashboard.subtitle"]
     </p>
 </div>
 
 @* ── Stat Cards ── *@
 <div class="widget-grid">
-    <StatCard Label="Active Referees" Value="@Stats.ActiveReferees.ToString()"
-              Change="@($"▲ +{Stats.SeasonChange} this season")" Accent="cyan" />
-    <StatCard Label="Matches This Season" Value="@Stats.MatchesThisSeason.ToString("N0")"
-              Change="@($"▲ +{Stats.MatchesThisWeek} this week")" Accent="lime" />
-    <StatCard Label="Avg. Assessment Score" Value="@Stats.AvgAssessmentScore.ToString("F1")"
-              Change="@($"▲ +{Stats.ScoreChangeVsLastSeason:F1} vs last season")" Accent="orange" />
-    <StatCard Label="Pending Appointments" Value="@Stats.PendingAppointments.ToString()"
-              Change="@($"Next matchday: {Stats.NextMatchday}")" Accent="blue" />
+    <StatCard Label="@L["dashboard.statActiveReferees"]" Value="@Stats.ActiveReferees.ToString()"
+              Change="@($"▲ +{Stats.SeasonChange} {@L["dashboard.changeSeason"]}")" Accent="cyan" />
+    <StatCard Label="@L["dashboard.statMatchesSeason"]" Value="@Stats.MatchesThisSeason.ToString("N0")"
+              Change="@($"▲ +{Stats.MatchesThisWeek} {@L["dashboard.changeWeek"]}")" Accent="lime" />
+    <StatCard Label="@L["dashboard.statAvgScore"]" Value="@Stats.AvgAssessmentScore.ToString("F1")"
+              Change="@($"▲ +{Stats.ScoreChangeVsLastSeason:F1} {@L["dashboard.changeVsLast"]}")" Accent="orange" />
+    <StatCard Label="@L["dashboard.statPendingAppt"]" Value="@Stats.PendingAppointments.ToString()"
+              Change="@($"{@L["dashboard.nextMatchday"]}: {Stats.NextMatchday}")" Accent="blue" />
 </div>
 
 @* ── Recent Referees + Activity Feed ── *@
@@ -29,14 +30,14 @@
     <div class="table-wrap">
         <div class="table-header">
             <div class="table-header-left">
-                <div class="table-title">Recently Updated Referees</div>
+                <div class="table-title">@L["dashboard.recentReferees"]</div>
             </div>
-            <a href="referees" class="btn btn-ghost btn-sm">View All →</a>
+            <a href="referees" class="btn btn-ghost btn-sm">@L["common.viewAll"]</a>
         </div>
         <table>
             <thead>
                 <tr>
-                    <th>Referee</th><th>Tier</th><th>Status</th><th>Matches</th><th>Last Active</th>
+                    <th>@L["common.th.referee"]</th><th>@L["common.th.tier"]</th><th>@L["common.th.status"]</th><th>@L["common.th.matches"]</th><th>@L["common.th.lastActive"]</th>
                 </tr>
             </thead>
             <tbody>
@@ -64,7 +65,7 @@
 
     <div class="card" style="padding:20px 24px;">
         <div class="section-title">
-            Recent Activity
+            @L["dashboard.recentActivity"]
             <span class="accent-line"></span>
         </div>
         @foreach (var a in Activities)
@@ -98,13 +99,13 @@
 <div class="table-wrap">
     <div class="table-header">
         <div class="table-header-left">
-            <div class="table-title">Upcoming Appointments</div>
-            <span class="table-count">Next 7 days</span>
+            <div class="table-title">@L["dashboard.upcomingAppt"]</div>
+            <span class="table-count">@L["dashboard.next7days"]</span>
         </div>
     </div>
     <table>
         <thead>
-            <tr><th>Date</th><th>Match</th><th>Competition</th><th>Referee</th><th>Assistants</th><th>4th Official</th></tr>
+            <tr><th>@L["common.th.date"]</th><th>@L["common.th.match"]</th><th>@L["common.th.competition"]</th><th>@L["common.th.referee"]</th><th>@L["dashboard.th.assistants"]</th><th>@L["dashboard.th.fourthOfficial"]</th></tr>
         </thead>
         <tbody>
             @foreach (var m in Appointments)
@@ -144,6 +145,25 @@
         Activities = await RefereeService.GetRecentActivityAsync();
         Appointments = await RefereeService.GetUpcomingAppointmentsAsync();
     }
+
+    public void Dispose()
+    {
+        L.OnLanguageChanged -= HandleLanguageChanged;
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await L.InitializeAsync();
+
+            L.OnLanguageChanged += HandleLanguageChanged;
+
+            StateHasChanged();
+        }
+    }
+    
+    private void HandleLanguageChanged() => InvokeAsync(StateHasChanged);
 
     private void GoToProfile(int id) => Nav.NavigateTo($"/referees/{id}");
 }

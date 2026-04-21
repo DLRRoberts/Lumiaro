@@ -4,6 +4,7 @@
 @inject FixtureService FixtureService
 @inject RefereeService RefereeService
 @inject NavigationManager Nav
+@implements IDisposable
 @rendermode InteractiveServer
 
 <PageTitle>@L["reports.pageTitle"]</PageTitle>
@@ -12,10 +13,10 @@
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;flex-wrap:wrap;gap:16px;">
     <div>
         <h1 style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;margin-bottom:4px;">
-            Match Reports
+            @L["reports.title"]
         </h1>
         <p style="font-size:.85rem;color:var(--text-muted);font-weight:300;">
-            Detailed narrative reports on match official performance with event timelines and video evidence.
+            @L["reports.subtitle"]
         </p>
     </div>
     <div style="display:flex;gap:12px;align-items:center;">
@@ -25,7 +26,7 @@
         <MiniStat Value="@Stats.published.ToString()" Label="Published" Color="var(--accent-lime)" />
         <button class="btn btn-primary" style="margin-left:8px;" @onclick="OpenNewModal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            New Report
+            @L["reports.newReport"]
         </button>
     </div>
 </div>
@@ -61,20 +62,20 @@
     <div class="form-group" style="min-width:140px;">
         <select class="form-select" @bind="FilterEventTypeStr" @bind:after="ApplyFiltersAsync">
             <option value="">Any Events</option>
-            <option value="@((int)EventType.Goal)">Goals</option>
-            <option value="@((int)EventType.Penalty)">Penalties</option>
-            <option value="@((int)EventType.YellowCard)">Yellow Cards</option>
-            <option value="@((int)EventType.RedCard)">Red Cards</option>
+            <option value="@((int)EventType.Goal)">@L["common.event.goal"]</option>
+            <option value="@((int)EventType.Penalty)">@L["referees.profile.th.penalties"]</option>
+            <option value="@((int)EventType.YellowCard)">@L["assessments.form.yellowCards"]</option>
+            <option value="@((int)EventType.RedCard)">@L["assessments.form.redCards"]</option>
             <option value="@((int)EventType.VarReview)">VAR Reviews</option>
-            <option value="@((int)EventType.Offside)">Offsides</option>
+            <option value="@((int)EventType.Offside)">@L["assessments.form.offsidesCalled"]</option>
         </select>
     </div>
 
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="filter-pill @(FilterStatus == null ? "active" : "")" @onclick="() => SetStatusFilter(null)">All</button>
-        <button class="filter-pill @(FilterStatus == ReportStatus.Draft ? "active" : "")" @onclick="() => SetStatusFilter(ReportStatus.Draft)">Draft</button>
-        <button class="filter-pill @(FilterStatus == ReportStatus.Submitted ? "active" : "")" @onclick="() => SetStatusFilter(ReportStatus.Submitted)">Submitted</button>
-        <button class="filter-pill @(FilterStatus == ReportStatus.Published ? "active" : "")" @onclick="() => SetStatusFilter(ReportStatus.Published)">Published</button>
+        <button class="filter-pill @(FilterStatus == null ? "active" : "")" @onclick="() => SetStatusFilter(null)">@L["common.all"]</button>
+        <button class="filter-pill @(FilterStatus == ReportStatus.Draft ? "active" : "")" @onclick="() => SetStatusFilter(ReportStatus.Draft)">@L["common.status.draft"]</button>
+        <button class="filter-pill @(FilterStatus == ReportStatus.Submitted ? "active" : "")" @onclick="() => SetStatusFilter(ReportStatus.Submitted)">@L["common.status.submitted"]</button>
+        <button class="filter-pill @(FilterStatus == ReportStatus.Published ? "active" : "")" @onclick="() => SetStatusFilter(ReportStatus.Published)">@L["common.status.published"]</button>
     </div>
 
     <div style="margin-left:auto;">
@@ -149,8 +150,22 @@ else
                         }
                     </div>
                 </div>
-                <div class="assessment-card-score" style="color:@UiHelpers.ScoreColor(r.OverallRating);">
-                    @r.OverallRating.ToString("F1")
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:120px;">
+                    <div class="assessment-card-score" style="color:@UiHelpers.ScoreColor(r.OverallRating);">
+                        @r.OverallRating.ToString("F1")
+                    </div>
+                    <a href="@BuildPdfUrl(r.Id, MatchReportPdfExportMode.Internal)"
+                       class="btn btn-ghost btn-sm"
+                       style="font-size:.68rem;padding:6px 10px;"
+                       @onclick:stopPropagation="true">
+                        @L["reports.exportInternalPdf"]
+                    </a>
+                    <a href="@BuildPdfUrl(r.Id, MatchReportPdfExportMode.Public)"
+                       class="btn btn-ghost btn-sm"
+                       style="font-size:.68rem;padding:6px 10px;"
+                       @onclick:stopPropagation="true">
+                        @L["reports.exportPublicPdf"]
+                    </a>
                 </div>
             </div>
         }
@@ -267,6 +282,7 @@ else
     }
 
     private void ViewReport(int id) => Nav.NavigateTo($"/reports/{id}");
+    private static string BuildPdfUrl(int reportId, MatchReportPdfExportMode exportMode) => $"/reports/{reportId}/pdf?mode={GetModeQueryValue(exportMode)}&theme=auto";
 
     private async Task ApplyFiltersAsync()
     {
@@ -281,6 +297,25 @@ else
         foreach (var r in Filtered)
             ReviewCountLookup[r.Id] = await ReviewService.GetReviewerCountAsync(r.Id);
     }
+    
+    public void Dispose()
+    {
+        L.OnLanguageChanged -= HandleLanguageChanged;
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await L.InitializeAsync();
+
+            L.OnLanguageChanged += HandleLanguageChanged;
+
+            StateHasChanged();
+        }
+    }
+    
+    private void HandleLanguageChanged() => InvokeAsync(StateHasChanged);
 
     private async Task SetStatusFilter(ReportStatus? status)
     {
@@ -354,5 +389,11 @@ else
         ReportStatus.Submitted => "status-submitted",
         ReportStatus.Published => "status-finalised",
         _ => "status-draft"
+    };
+
+    private static string GetModeQueryValue(MatchReportPdfExportMode exportMode) => exportMode switch
+    {
+        MatchReportPdfExportMode.Public => "public",
+        _ => "internal"
     };
 }

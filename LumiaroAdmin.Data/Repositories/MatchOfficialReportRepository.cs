@@ -18,6 +18,8 @@ public class MatchOfficialReportRepository : RepositoryBase<MatchOfficialReportE
         await using var uow = GetUnitOfWork();
         
         return await uow.Set
+            .Include(r => r.Fixture)
+                .ThenInclude(f => f.Division)
             .Include(r => r.Sections.OrderBy(s => s.SortOrder))
             .Include(r => r.Events.OrderBy(e => e.Minute).ThenBy(e => e.AddedTime))
             .Include(r => r.VideoClips.OrderBy(v => v.SortOrder))
@@ -28,6 +30,8 @@ public class MatchOfficialReportRepository : RepositoryBase<MatchOfficialReportE
     {
         await using var uow = GetUnitOfWork();
         return await uow.Set.AsNoTracking()
+            .Include(r => r.Fixture)
+                .ThenInclude(f => f.Division)
             .Include(r => r.Events)
             .Include(r => r.VideoClips)
             .Where(r => r.RefereeId == refereeId)
@@ -39,6 +43,8 @@ public class MatchOfficialReportRepository : RepositoryBase<MatchOfficialReportE
     {
         await using var uow = GetUnitOfWork();
         return await uow.Set.AsNoTracking()
+            .Include(r => r.Fixture)
+                .ThenInclude(f => f.Division)
             .Where(r => r.FixtureId == fixtureId)
             .OrderBy(r => r.OfficialRole)
             .ToListAsync(ct);
@@ -57,6 +63,8 @@ public class MatchOfficialReportRepository : RepositoryBase<MatchOfficialReportE
     {
         await using var uow = GetUnitOfWork();
         var q = uow.Set.AsNoTracking()
+            .Include(r => r.Fixture)
+                .ThenInclude(f => f.Division)
             .Include(r => r.Events)
             .Include(r => r.VideoClips)
             .AsQueryable();
@@ -109,6 +117,8 @@ public class MatchOfficialReportRepository : RepositoryBase<MatchOfficialReportE
     {
         await using var uow = GetUnitOfWork();
         return await uow.Set.AsNoTracking()
+            .Include(r => r.Fixture)
+                .ThenInclude(f => f.Division)
             .Include(r => r.Sections)
             .Include(r => r.Events)
             .Include(r => r.VideoClips)
